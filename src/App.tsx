@@ -264,6 +264,14 @@ export default function App() {
       {/* Sleek Geometric Frame Details */}
       <div className="fixed inset-0 pointer-events-none border border-neutral-900 z-50 m-4 opacity-70"></div>
       
+      {/* Development Mode Warning Banner */}
+      <div className="relative z-40 bg-gradient-to-r from-neutral-950 via-[#0a0a09] to-neutral-950 border-b border-neo-gold/20 px-4 py-3 text-center text-xs font-mono tracking-wider text-neo-gold flex items-center justify-center gap-2.5">
+        <span className="w-2 h-2 rounded-full bg-neo-gold animate-pulse shrink-0"></span>
+        <span className="uppercase text-[10px] sm:text-xs">
+          Website Is In Development Mode. Products Are Not Actual Products And Checkout Is Not Functional. Stay Tuned For More Updates.
+        </span>
+      </div>
+
       {/* Brand Header */}
       <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-neutral-900 px-6 py-4 md:px-12">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
