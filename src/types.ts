@@ -1,0 +1,47 @@
+export interface ShopifyProductImage {
+  url: string;
+  altText: string | null;
+}
+
+export interface ShopifyVariant {
+  id: string;
+  title: string;
+  price: {
+    amount: string;
+    currencyCode: string;
+  };
+  availableForSale: boolean;
+}
+
+export interface ShopifyProduct {
+  id: string;
+  title: string;
+  description: string;
+  handle: string;
+  priceMin: {
+    amount: string;
+    currencyCode: string;
+  };
+  priceMax?: {
+    amount: string;
+    currencyCode: string;
+  };
+  images: ShopifyProductImage[];
+  variants: ShopifyVariant[];
+  category?: string;
+  specifications?: Record<string, string>;
+  curatedVerdict?: string;
+}
+
+export interface CartItem {
+  product: ShopifyProduct;
+  variant: ShopifyVariant;
+  quantity: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: string;
+}

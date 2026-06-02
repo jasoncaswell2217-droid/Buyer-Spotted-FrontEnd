@@ -1,0 +1,6 @@
+{
+  "name": "BuyerSpotted",
+  "description": "A sleek, luxury affiliate web application featuring high-end curated tech-forward items from the BuyerSpotted Shopify store, powered by SpottedAI curator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
