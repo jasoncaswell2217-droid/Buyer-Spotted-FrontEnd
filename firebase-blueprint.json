@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile containing roles and metadata.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "The email address of the registered user."
+        },
+        "role": {
+          "type": "integer",
+          "description": "1 for Administrator, 2 for Guest.",
+          "enum": [1, 2]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when user was registered."
+        }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Affiliate ClickBank products added by the Administrator.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title or name of the product."
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief product description."
+        },
+        "price": {
+          "type": "number",
+          "description": "Est. retail price or potential commission in USD."
+        },
+        "cbVendor": {
+          "type": "string",
+          "description": "ClickBank Vendor Nickname/ID."
+        },
+        "cbAffiliate": {
+          "type": "string",
+          "description": "ClickBank Affiliate account nickname."
+        },
+        "gravity": {
+          "type": "number",
+          "description": "ClickBank Gravity rating score."
+        },
+        "conversionLabel": {
+          "type": "string",
+          "description": "Conversion label detailing expected payout, e.g., '$139.00 avg payout'."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Web URL to the product image."
+        },
+        "affiliateUrl": {
+          "type": "string",
+          "description": "The custom/generated ClickBank Hoplink redirect URL."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp."
+        }
+      },
+      "required": ["title", "description", "price", "cbVendor", "cbAffiliate", "gravity", "imageUrl", "affiliateUrl", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile store."
+    },
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "Curated ClickBank products."
+    }
+  }
+}

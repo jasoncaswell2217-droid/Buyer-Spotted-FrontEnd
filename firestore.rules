@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Defend by default global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Standard high-hardness primitives
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { 
+      return request.resource.data; 
+    }
+    function existing() { 
+      return resource.data; 
+    }
+    function isSignedIn() { 
+      return request.auth != null; 
+    }
+    function isVerifiedUser() { 
+      // Protect standard writes by ensuring verified emails
+      return isSignedIn() && request.auth.token.email_verified == true; 
+    }
+    function isAdmin() { 
+      // Secure admin check based directly on the cryptographically signed JWT token from Google Login
+      return isVerifiedUser() && request.auth.token.email == 'jasoncaswell2217@gmail.com'; 
+    }
+
+    // Helper: validate user structure
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt'])
+        && data.keys().size() == 3
+        && data.email is string
+        && data.email.size() > 0
+        && data.email.size() <= 256
+        && data.role is int
+        && (data.role == 1 || data.role == 2)
+        && (data.role == 1 ? request.auth.token.email == 'jasoncaswell2217@gmail.com' : true)
+        && data.createdAt == request.time;
+    }
+
+    // Helper: validate product structure
+    function isValidProduct(data) {
+      return data.keys().hasAll(['title', 'description', 'price', 'cbVendor', 'cbAffiliate', 'gravity', 'imageUrl', 'affiliateUrl', 'createdAt'])
+        && (data.keys().size() == 9 || (data.keys().size() == 10 && data.keys().hasAll(['conversionLabel'])))
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 500
+        && data.description is string && data.description.size() <= 10000
+        && (data.price is int || data.price is float) && data.price >= 0
+        && data.cbVendor is string && data.cbVendor.size() > 0 && data.cbVendor.size() <= 128
+        && data.cbAffiliate is string && data.cbAffiliate.size() > 0 && data.cbAffiliate.size() <= 128
+        && (data.gravity is int || data.gravity is float) && data.gravity >= 0
+        && (!data.keys().hasAll(['conversionLabel']) || (data.conversionLabel is string && data.conversionLabel.size() <= 256))
+        && data.imageUrl is string && data.imageUrl.size() <= 2048
+        && data.affiliateUrl is string && data.affiliateUrl.size() <= 2048
+        && data.createdAt == request.time;
+    }
+
+    // Rules for User documents
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      
+      allow create: if isVerifiedUser() 
+        && request.auth.uid == userId
+        && isValidUser(incoming());
+        
+      allow update: if isVerifiedUser()
+        && request.auth.uid == userId
+        && isValidUser(incoming())
+        // Immerse immutability constraints: can't change creation date or emails
+        && incoming().createdAt == existing().createdAt
+        && incoming().email == existing().email
+        // Prevent elevation: non-admins cannot change their role to admin, and can't change it at all unless same
+        && (incoming().role == existing().role || isAdmin());
+        
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Product documents
+    match /products/{productId} {
+      // Anyone can retrieve or query products to view client-side
+      allow get, list: if true;
+      
+      // Admin exclusive create, update, delete operations
+      allow create: if isAdmin() 
+        && isValidId(productId)
+        && isValidProduct(incoming());
+        
+      allow update: if isAdmin()
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().createdAt == existing().createdAt;
+        
+      allow delete: if isAdmin();
+    }
+  }
+}

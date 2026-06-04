@@ -31,6 +31,12 @@ export interface ShopifyProduct {
   category?: string;
   specifications?: Record<string, string>;
   curatedVerdict?: string;
+  amazonUrl?: string;
+  cbVendor?: string;
+  cbAffiliate?: string;
+  gravity?: number;
+  clickbankUrl?: string;
+  conversionLabel?: string;
 }
 
 export interface CartItem {

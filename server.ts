@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -81,119 +81,114 @@ async function fetchShopifyToken(): Promise<string | null> {
 // Sleek, high-concept luxury tech fallback products to guarantee page is beautifully occupied 
 const FALLBACK_PRODUCTS = [
   {
-    id: "prod_01J0ZXY",
-    title: "“AURA II” Biometric Smart Mirror",
-    description: "A continuous frame of bead-blasted dark aluminum enclosing high-reflection electrochromic glass. Features an interactive transparent OLED layer that displays ambient real-time biomechanics, biometric analysis, and custom aesthetic widgets. Hand-finished back.",
-    handle: "aura-biometric-smart-mirror",
-    priceMin: { amount: "1450.00", currencyCode: "USD" },
+    id: "prod_amazon_red_light",
+    title: "“SOLIS” Cordless Red Light Therapy Belt",
+    description: "Unchain your recovery with Solis. Features custom clinical-strength 660nm red light and 850nm near-infrared emitters. Ergonomically tailored with an elastic velvet wrap and an ultra-lightweight rechargeable 5000mAh battery pack. Offers three adjustable phototherapy modes and specialized thermal pulse loops.",
+    handle: "solis-cordless-red-light-belt",
+    priceMin: { amount: "39.99", currencyCode: "USD" },
     images: [
-      { url: "https://images.unsplash.com/photo-1618220179428-22790b461013?w=800&auto=format&fit=crop", altText: "AURA Mirror Active" },
-      { url: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?q=80&w=800&auto=format&fit=crop", altText: "Aura Interface Macro" }
+      { url: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=800&auto=format&fit=crop", altText: "Solis Active Light Wellness" }
     ],
     variants: [
-      { id: "46294328508655", title: "Carbon Slate Matte (Standard)", price: { amount: "1450.00", currencyCode: "USD" }, availableForSale: true },
-      { id: "46294328541423", title: "Obsidian Titanium (Studio)", price: { amount: "1850.00", currencyCode: "USD" }, availableForSale: true }
+      { id: "var_red_light_01", title: "Midnight Slate Soft", price: { amount: "39.99", currencyCode: "USD" }, availableForSale: true }
     ],
-    category: "Aura Architecture",
+    category: "Wellness Devices",
     specifications: {
-      "Dimensions": "120cm x 60cm x 4cm",
-      "Display Cores": "Transparent OLED Micro-Panel",
-      "Sensors": "Local Depth LIDAR & Thermopics",
-      "Mounting": "Zero-Bezel Magnetic Railing"
+      "Emitters": "105 Clinical-Grade SMD LEDs",
+      "Wavelengths": "660nm Red & 850nm Near-Infrared",
+      "Power Cell": "5000mAh USB-C Rechargeable Lith-Ion",
+      "Wrap Band": "Adjustable Compression Velvet Strap"
     },
-    curatedVerdict: "A masterpiece of sensory silence. Eliminates visual screen noise in favor of deep biometric reflection."
+    curatedVerdict: "Ditch the restrictive cords of yesterday. Solis delivers clinical-strength near-infrared light with complete mobile freedom.",
+    amazonUrl: "https://www.amazon.com/Cordless-Infrared-Adjustable-Portable-Relaxation/dp/B0GK7GWBPY"
   },
   {
-    id: "prod_02K1YXZ",
-    title: "“SABRE-9” Stealth Headphones",
-    description: "Matte black computational audio, engineered with Grade 5 milled titanium sliders and solid carbon-fiber acoustic acoustic chambers. Powered by dual electrostatic drivers for absolute separation and minimal acoustic bounce.",
-    handle: "sabre-9-headphones",
-    priceMin: { amount: "890.00", currencyCode: "USD" },
+    id: "prod_amazon_reedle_shot",
+    title: "“REEDLE 100” Dermal Micro-Spicule Essence",
+    description: "A groundbreaking skin stimulator by VT Cosmetics. Formulated with microscopic ocean-derived Silica Reedles that micro-penetrate the skin barrier to create structural pathways, driving active Hyaluronic acid and botanical Cica deep into the dermis. Enhances elasticity, smooths rough texture, and minimizes visible pores.",
+    handle: "reedle-100-dermal-essence",
+    priceMin: { amount: "32.00", currencyCode: "USD" },
     images: [
-      { url: "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop", altText: "SABRE-9 Core Profile" },
-      { url: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop", altText: "Sensory Cup Mesh detail" }
+      { url: "https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?w=800&auto=format&fit=crop", altText: "Reedle 100 Essence Bottle" }
     ],
     variants: [
-      { id: "46294328574191", title: "Stealth Slate Matte", price: { amount: "890.00", currencyCode: "USD" }, availableForSale: true },
-      { id: "46294328606959", title: "Raw Brushed Carbon", price: { amount: "1100.00", currencyCode: "USD" }, availableForSale: true }
+      { id: "var_reedle_01", title: "Standard 50ml Dispenser", price: { amount: "32.00", currencyCode: "USD" }, availableForSale: true }
     ],
-    category: "Sensory Enclosures",
+    category: "Dermal Essence",
     specifications: {
-      "Accoustic Core": "50mm Solid Electrostatic Ribbon",
-      "Frequency Envelope": "4Hz - 45,000Hz (True High-Res)",
-      "ANC Level": "Custom 48dB Spatial Multi-Mic Array",
-      "Playtime Link": "42 Hours lossless DAC playback"
+      "Active Core": "95,000 Micro-Physical Reedle Spicules",
+      "Soothing Complex": "Cica Extract & Triple Hyaluronic Acid",
+      "Texture": "Lightweight Absorbent Essence",
+      "Target Indicator": "Uneven Tone, Open Pores, Sluggish Cell Cycles"
     },
-    curatedVerdict: "Near-total isolation from office hums and travel roar. Creates a heavy, matte-black bubble of sound."
+    curatedVerdict: "Not a standard facial serum. It tingles upon touch as thousands of micro-needles dynamically reset your texture and pore density.",
+    amazonUrl: "https://www.amazon.com/VT-COSMETICS-Hydrated-Poreless-Hyaluronic/dp/B0C2TQ24VY"
   },
   {
-    id: "prod_03L2ZXW",
-    title: "“OBSIDIAN” Titanium Timepiece",
-    description: "An open skeleton structural movement, encased in sand-blasted dark titanium with double-domed anti-reflective sapphire crystal. Features a secondary microscopic OLED sub-indicator that relays encrypted ledger status and biometric pulse loops.",
-    handle: "obsidian-titanium-timepiece",
-    priceMin: { amount: "2800.00", currencyCode: "USD" },
+    id: "prod_amazon_joola_paddle",
+    title: "“HYPERION CFS” Carbon Pickleball Paddle",
+    description: "Take supreme control of the court with the official weapon of world champion Ben Johns. Structured with a premium Carbon Friction Surface (CFS) for raw slice and spin, reinforced with a high-density Hyperfoam Edge Wall to maximize sweet-spot stability, and a fully reactive honeycomb polypropylene core.",
+    handle: "joola-hyperion-cfs-paddle",
+    priceMin: { amount: "219.95", currencyCode: "USD" },
     images: [
-      { url: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=800&auto=format&fit=crop", altText: "OBSIDIAN Mechanical Assembly" },
-      { url: "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?w=800&auto=format&fit=crop", altText: "Titanium casing close" }
+      { url: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&auto=format&fit=crop", altText: "Hyperion Core Paddle Profile" }
     ],
     variants: [
-      { id: "46294328639727", title: "Grade 5 DLC Slate Silver", price: { amount: "2800.00", currencyCode: "USD" }, availableForSale: true },
-      { id: "46294328672495", title: "Polished Carbon Infused", price: { amount: "3200.00", currencyCode: "USD" }, availableForSale: true }
+      { id: "var_joola_01", title: "Carbon 16mm (Ben Johns Signature)", price: { amount: "219.95", currencyCode: "USD" }, availableForSale: true }
     ],
-    category: "Precision Horology",
+    category: "Aero Sport",
     specifications: {
-      "Crown Material": "Grade 5 Titanium Satin Finish",
-      "Movement system": "Automatic Chronograph Caliber SP-3",
-      "Waterproofing": "100m Hydrostatic Rating",
-      "Smart Relay": "Low-Energy secure physical crypto key anchor"
+      "Surface Technology": "Carbon-Friction Thermoformed Wrap (CFS)",
+      "Core Material": "Reactive Honeycomb Polypropylene (16mm)",
+      "Handle Length": "5.5 inches Aero-Flow Traction",
+      "Weight Profile": "8.4 oz Balanced Sweetspot"
     },
-    curatedVerdict: "A mechanical masterpiece that reminds you why tactile engineering is superior to disposable flat-screen smartwatches."
+    curatedVerdict: "The ultimate synthesis of power, control, and brutalist spin of the ball. An absolute requirement for advanced court mechanics.",
+    amazonUrl: "https://www.amazon.com/JOOLA-Johns-Hyperion-Pickleball-Paddle/dp/B0BFT2YGN7"
   },
   {
-    id: "prod_04M3WYV",
-    title: "“MONOLITH-140” Telemetry Power Core",
-    description: "Bead-blasted solid aluminum block housing high-density graphene batteries with 140W fast-charging capabilities. Outfitted with an integrated low-draw e-ink display showing micro-voltage currents, operating temperature, and health indicators.",
-    handle: "monolith-140-graphene-core",
-    priceMin: { amount: "220.00", currencyCode: "USD" },
+    id: "prod_amazon_govee_lights",
+    title: "“AURA GLOW” Permanent Smart Outdoor Lights",
+    description: "Settle your architectural illumination permanently with Govee eaves lights. This fully waterproof system features brilliant, individually addressable RGBIC lights that can display up to 16 million colors simultaneously. Program stunning ambient flows, schedule lighting routines via Bluetooth, and integrate with smart assistants seamlessly.",
+    handle: "govee-permanent-outdoor-lights",
+    priceMin: { amount: "199.99", currencyCode: "USD" },
     images: [
-      { url: "https://images.unsplash.com/photo-1609592424085-f6745112f45d?w=800&auto=format&fit=crop", altText: "MONOLITH brutalist block layout" }
+      { url: "https://images.unsplash.com/photo-1565538810643-b5abd3cb82ee?w=800&auto=format&fit=crop", altText: "Aura Glow Architectural Illumination" }
     ],
     variants: [
-      { id: "46294328705263", title: "Satin Solid Billet Silver", price: { amount: "220.00", currencyCode: "USD" }, availableForSale: true },
-      { id: "46294328738031", title: "Anodized Slate Black", price: { amount: "240.00", currencyCode: "USD" }, availableForSale: true }
+      { id: "var_govee_01", title: "50-Foot 30-Light Set", price: { amount: "199.99", currencyCode: "USD" }, availableForSale: true }
     ],
-    category: "Power Reservoirs",
+    category: "Architectural Light",
     specifications: {
-      "Capacity Core": "27,600mAh (99.3Wh FAA Flight Legal)",
-      "Output Channels": "2x USB-C (140W max), 1x High-Amp USB-A",
-      "Display System": "Realtime Low-Draw E-Ink telemetry UI",
-      "Power Core": "Graphene solid state hybrid cooling"
+      "Weatherproofing": "IP67 Waterproof Strip, IP65 Adapter Support",
+      "Color Spectrum": "RGBIC individually addressable, 16M Colors",
+      "Smart Controller": "Govee Home App (WiFi + Bluetooth) & Voice Commands",
+      "Working Life": "50,000 Hours Durability Rating"
     },
-    curatedVerdict: "Pure solid-metal weight in an era of flimsy plastic power banks. An industrial workhorse of extreme elegance."
+    curatedVerdict: "Never struggle with tangled seasonal lights again. These mount flush with your eaves to outline your home in pure, programmable light waves.",
+    amazonUrl: "https://www.amazon.com/Govee-Dimmable-Backyard-Waterproof-Assistant/dp/B0CT4ZR4Y9"
   },
   {
-    id: "prod_05N4VUX",
-    title: "“NIGHTWALKER” Cybernetic Modular Shell",
-    description: "Ultra-matte waterproof outer barrier constructed from an experimental self-healing liquid-repellent synthetic knit. Engineered with seamless laser fusion joints, self-closing storm gutters, and modular magnetic pockets.",
-    handle: "nightwalker-cybernetic-pocket-shell",
-    priceMin: { amount: "1150.00", currencyCode: "USD" },
+    id: "prod_amazon_sony_neckband",
+    title: "“SRS-NS7” Personal Cinema Neckband Speaker",
+    description: "Envelop yourself in theatrical 3D sound waves without disturbing others. Sony's premium comfortable wireless wearable speaker creates an individual acoustic space around you. Equipped with upward-firing full-range speakers, passive bass radiators, and 360 Spatial Sound Personalizer technology for ultra-clear Dolby Atmos experiences.",
+    handle: "sony-srs-ns7-neckband-speaker",
+    priceMin: { amount: "299.99", currencyCode: "USD" },
     images: [
-      { url: "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&auto=format&fit=crop", altText: "NIGHTWALKER Silhouette Wear" },
-      { url: "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=800&auto=format&fit=crop", altText: "Modular utility alignment" }
+      { url: "https://images.unsplash.com/photo-1545454675-3531b543be5d?w=800&auto=format&fit=crop", altText: "SRS-NS7 Personal Space Sound" }
     ],
     variants: [
-      { id: "46294328770799", title: "Size Medium / Midnight Obsidian", price: { amount: "1150.00", currencyCode: "USD" }, availableForSale: true },
-      { id: "46294328803567", title: "Size Large / Midnight Obsidian", price: { amount: "1150.00", currencyCode: "USD" }, availableForSale: true },
-      { id: "46294328836335", title: "Size X-Large / Midnight Obsidian", price: { amount: "1150.00", currencyCode: "USD" }, availableForSale: true }
+      { id: "var_sony_01", title: "Midnight Charcoal Tech", price: { amount: "299.99", currencyCode: "USD" }, availableForSale: true }
     ],
-    category: "Technical Outwear",
+    category: "Sensory Audio",
     specifications: {
-      "Fabric Core": "3-Layer G-Tec Hydrophobic Membrane",
-      "Clasp Arrays": "German Fidlock sliding rare-earth magnets",
-      "Aeration": "Underarm concealed zipper ventilation channels",
-      "Layout Tech": "Double modular accessory rails, 2 isolated internal security sleeves"
+      "Accoustic Drivers": "X-Balanced Speaker Units w/ Dual Passive Radiators",
+      "Spatial Protocol": "360 Spatial Sound Personalizer Engine (Dolby Atmos)",
+      "Weather Resistance": "IPX4 Ergonomic Splash-Resistant Frame",
+      "Wireless Link": "Bluetooth 5.0 Low-Latency Transmitter included"
     },
-    curatedVerdict: "An architectural shield for urban traversing. Completely repels heavy downpours while keeping a razor-sharp profile drape."
+    curatedVerdict: "Creates a tight, high-fidelity sound bubble. It mimics a full 5.1.2 home theater configuration right around your collarbones.",
+    amazonUrl: "https://www.amazon.com/Sony-Comfortable-Lightweight-Technology-Splash-Resistant/dp/B098TW4J7Y"
   }
 ];
 
@@ -436,6 +431,64 @@ app.post("/api/gemini-chat", async (req, res) => {
     return res.json(result);
   }
 
+  // 1b. Handle specialized ClickBank marketplace research actions
+  if (action === "fetch-clickbank-products") {
+    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
+    try {
+      console.log("[Digital Warehouse] Querying Gemini for ClickBank high-converting trending offers (strict schema verification)...");
+      const systemInstruction = `You are an elite, advanced ClickBank affiliate marketing AI product researcher with 100+ years of domain experience.
+      You possess granular knowledge of the highest-converting, top-selling, and trending digital & physical marketplace campaigns across fitness, health, and wealth.
+      Your goal is to suggest exactly 4 live, top-performing health, fitness, or wealth product options configured for database injection.
+      
+      To prevent inaccurate metric generation for 'Gravity Score' and 'Avg $/Conversion', you must strictly parse and adhere to ClickBank's official structural data attributes:
+      1. 'Gravity Score' (Grav): Must be extracted as the literal rolling 12-week momentum value. Strictly return a decimal/number between 50.0 and 200.0. Do not calculate, estimate, or round this number arbitrarily.
+      2. 'Avg $/Conversion': This must reflect the full Average Payout Value (APV) including initial sales, upsell pathways, and rebill totals. Map this directly as a decimal value to expected_payout.
+      3. 'ClickBank HopLink URL': Format this programmatically as: https://wolfjay26.[vendor_id].hop.clickbank.net where [vendor_id] matches the official vendor tag representing their marketplace handle (e.g. alpilean, puravive, javaburn, sugardef).
+      
+      For each of the 4 offers, you must output:
+      - title: "Literal Vendor Listing Name"
+      - description: "Professional direct-response copy summary of the funnel/angle"
+      - expected_payout: Float (represent full Average Payout Value)
+      - gravity_score: Float (must be correct and up to date as it shows on the ClickBank marketplace, strictly between 50.0 and 200.0)
+      - conversion_label: "String matching '$XX.XX Average $/Conversion' representing average payout value"
+      - image_url: "High-quality placeholder image match using Unsplash (e.g. healthcare, supplements, weights, fitness, wealth)"
+      - clickbank_hoplink_url: "https://wolfjay26.[vendor_id].hop.clickbank.net"`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: "Scan the ClickBank marketplace right now for the top 4 health, fitness, or wealth offers meeting our 50-200 gravity criteria. Map them strictly to the specified JSON format and return a JSON list of exactly 4 items containing title, description, expected_payout, gravity_score, conversion_label, image_url, and clickbank_hoplink_url.",
+        config: {
+          systemInstruction,
+          temperature: 0.82,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                description: { type: Type.STRING },
+                expected_payout: { type: Type.NUMBER },
+                gravity_score: { type: Type.NUMBER },
+                conversion_label: { type: Type.STRING },
+                image_url: { type: Type.STRING },
+                clickbank_hoplink_url: { type: Type.STRING }
+              },
+              required: ["title", "description", "expected_payout", "gravity_score", "conversion_label", "image_url", "clickbank_hoplink_url"]
+            }
+          }
+        }
+      });
+
+      const dataText = response.text || "[]";
+      const parsedData = JSON.parse(dataText.trim());
+      return res.json({ products: parsedData });
+    } catch (error: any) {
+      console.error("[Digital Warehouse] Error executing ClickBank research query:", error);
+      return res.status(500).json({ error: error.message || "Engine blocked on ClickBank market analysis." });
+    }
+  }
+
   // 2. Main Chat Handler - Handles Gemini AI Luxury Persona response
   if (!message) {
     return res.status(400).json({ error: "Message content or specific action type is required" });
@@ -449,13 +502,13 @@ app.post("/api/gemini-chat", async (req, res) => {
   
   Your primary objective is to evaluate user preferences, offer styling suggestions, and discuss the curated BuyerSpotted collection.
   The BuyerSpotted Catalog consists of:
-  1. “AURA II” Biometric Smart Mirror - $1,450.00
-  2. “SABRE-9” Stealth Electrostatic Headphones - $890.00
-  3. “OBSIDIAN” Titanium Mechanical Timepiece - $2,800.00
-  4. “MONOLITH-140” Solid Telemetry Power Core - $220.00
-  5. “NIGHTWALKER” Cybernetic Modular Shell - $1,150.00
+  1. “SOLIS” Cordless Red Light Therapy Belt - $39.99
+  2. “REEDLE 100” Dermal Micro-Spicule Essence - $32.00
+  3. “HYPERION CFS” Carbon Pickleball Paddle - $219.95
+  4. “AURA GLOW” Permanent Smart Outdoor Lights - $199.99
+  5. “SRS-NS7” Personal Cinema Neckband Speaker - $299.99
 
-  Explain products in terms of tactile elegance, material beauty (electrochromic glass, aerospace billet aluminum, carbon fiber, Grade 5 DLC titanium), and functional isolation.
+  Explain products in terms of tactile elegance, material beauty (micro-spicule silica, reactive polypropylene honeycomb, custom carbon-friction, lightweight 3D neckband spatial audio, cordless phototherapy), and functional isolation.
   Always keep answers elegant, highly scannable, under 110 words, and formatted with clean paragraphs. Translate user styles into dark, cinematic luxury concepts.`;
 
   try {

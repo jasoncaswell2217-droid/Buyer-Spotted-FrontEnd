@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import { 
   ShoppingBag, 
   MessageCircle, 
@@ -15,10 +15,64 @@ import {
   RefreshCw, 
   Sliders, 
   ArrowUpRight,
-  Info
+  Info,
+  Lock,
+  ShieldAlert,
+  LogOut
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ShopifyProduct, ShopifyVariant, CartItem, ChatMessage } from "./types";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
+import { auth, db, signInWithGoogle, logOutUser, syncUserProfile, UserRole, UserProfile, handleFirestoreError, OperationType } from "./firebase";
+
+const mapFirestoreProductToShopify = (id: string, docData: any): ShopifyProduct => {
+  const priceStr = Number(docData.price || 0).toFixed(2);
+  const cbVendor = docData.cbVendor || "";
+  const cbAffiliate = docData.cbAffiliate || "";
+  const gravityValue = Number(docData.gravity || 0);
+  const hoplink = docData.affiliateUrl || `https://${cbAffiliate}.${cbVendor}.hop.clickbank.net`;
+
+  return {
+    id: id,
+    title: docData.title || "",
+    description: docData.description || "",
+    handle: (docData.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    priceMin: {
+      amount: priceStr,
+      currencyCode: "USD"
+    },
+    images: [{
+      url: docData.imageUrl || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600",
+      altText: docData.title || null
+    }],
+    variants: [{
+      id: "var_" + (cbVendor || id),
+      title: "Standard",
+      price: {
+        amount: priceStr,
+        currencyCode: "USD"
+      },
+      availableForSale: true
+    }],
+    category: "ClickBank Curated",
+    specifications: {
+      "ClickBank Vendor": cbVendor || "N/A",
+      "Affiliate ID": cbAffiliate || "N/A",
+      "Gravity: Score": gravityValue > 0 ? String(gravityValue.toFixed(1)) : "N/A",
+      "Conversion Label": docData.conversionLabel || `$${priceStr} / sale`,
+      "Redirection": "ClickBank Network",
+      "Registry ID": id.slice(0, 8).toUpperCase()
+    },
+    curatedVerdict: "Top tier ClickBank digital or physical curation. Streamlined mechanically for peak affiliate conversions.",
+    amazonUrl: hoplink,
+    clickbankUrl: hoplink,
+    cbVendor,
+    cbAffiliate,
+    gravity: gravityValue,
+    conversionLabel: docData.conversionLabel || `$${priceStr} expected payout`
+  };
+};
 
 export default function App() {
   // State elements
@@ -32,6 +86,35 @@ export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiveConnection, setIsLiveConnection] = useState(false);
+
+  // Firebase Auth and Custom Profile state
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  // Administration View and ClickBank Form State
+  const [isAdminViewActive, setIsAdminViewActive] = useState(false);
+  const [adminTab, setAdminTab] = useState<"vault" | "warehouse">("vault");
+  const [fetchedProducts, setFetchedProducts] = useState<any[]>([]);
+  const [isFetchingCB, setIsFetchingCB] = useState(false);
+  const [fetchErrorCB, setFetchErrorCB] = useState("");
+
+  const [formTitle, setFormTitle] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+  const [formPrice, setFormPrice] = useState("");
+  const [formCbVendor, setFormCbVendor] = useState("");
+  const [formCbAffiliate, setFormCbAffiliate] = useState("wolfjay26");
+  const [formGravity, setFormGravity] = useState("");
+  const [formConversionLabel, setFormConversionLabel] = useState("");
+  const [formImageUrl, setFormImageUrl] = useState("");
+  const [formAffiliateUrl, setFormAffiliateUrl] = useState("");
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Deletion tracking state
+  const [activeDeleteId, setActiveDeleteId] = useState<string | null>(null);
 
   // Chat conversation state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -57,10 +140,25 @@ export default function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, isChatOpen]);
 
-  // Load products on mount
+  // Synchronized Firestore Products and Auth States
   useEffect(() => {
-    fetchCuratedCatalog();
+    setIsLoading(true);
     
+    // Subscribe to products real-time snapshot
+    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+    const unsubscribeProducts = onSnapshot(q, (snapshot) => {
+      const fbProducts = snapshot.docs.map(docSnap => {
+        return mapFirestoreProductToShopify(docSnap.id, docSnap.data());
+      });
+      setProducts(fbProducts);
+      setIsLoading(false);
+      setIsLiveConnection(true);
+    }, (err) => {
+      console.error("Firestore loading error:", err);
+      setProducts([]);
+      setIsLoading(false);
+    });
+
     // Retrieve stored cart if it exists
     try {
       const savedCart = localStorage.getItem("buyerspotted_cart");
@@ -70,6 +168,38 @@ export default function App() {
     } catch (e) {
       console.warn("Could not retrieve saved cart state:", e);
     }
+
+    // Subscribe to Authentication session state changes
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+      setCurrentUser(u);
+      if (u) {
+        const unsubProfile = syncUserProfile(u.uid, (profile) => {
+          if (profile) {
+            setUserProfile(profile);
+          } else {
+            // Profile fallback
+            const isEmailAdmin = u.email === "jasoncaswell2217@gmail.com";
+            setUserProfile({
+              uid: u.uid,
+              email: u.email || "",
+              role: isEmailAdmin ? UserRole.ADMIN : UserRole.GUEST,
+              createdAt: new Date()
+            });
+          }
+          setIsAuthChecking(false);
+        });
+        return () => unsubProfile();
+      } else {
+        setUserProfile(null);
+        setIsAdminViewActive(false);
+        setIsAuthChecking(false);
+      }
+    });
+
+    return () => {
+      unsubscribeProducts();
+      unsubscribeAuth();
+    };
   }, []);
 
   // Sync cart with local storage
@@ -82,38 +212,159 @@ export default function App() {
     }
   };
 
-  /**
-   * Safe fetch routine requesting products through compliant server endpoints
-   */
-  const fetchCuratedCatalog = async () => {
-    setIsLoading(true);
+  // Fetch products from ClickBank research agent
+  const handleFetchClickBankProducts = async () => {
+    // Force clear the table before displaying new results to prevent appending/stacking data
+    setFetchedProducts([]);
+    setFetchErrorCB("");
+    setIsFetchingCB(true);
+
     try {
       const response = await fetch("/api/gemini-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get-products" })
+        body: JSON.stringify({ action: "fetch-clickbank-products" })
       });
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data.products || []);
-        setIsLiveConnection(!!data.live);
-      } else {
-        throw new Error("Multiplexed product endpoint returned error status");
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Signal interrupted during clickbank discovery");
       }
-    } catch (err) {
-      console.warn("Primary API routing failed. Swapping to secondary standard REST handler...", err);
-      try {
-        const restRes = await fetch("/api/products");
-        if (restRes.ok) {
-          const data = await restRes.json();
-          setProducts(data.products || []);
-          setIsLiveConnection(!!data.live);
+
+      const data = await response.json();
+      if (data.products && Array.isArray(data.products)) {
+        setFetchedProducts(data.products);
+      } else {
+        throw new Error("Invalid response format received from research intelligence");
+      }
+    } catch (err: any) {
+      console.error("[Digital Warehouse] Fetch error:", err);
+      setFetchErrorCB(err.message || "Temporary error polling ClickBank market research node.");
+    } finally {
+      setIsFetchingCB(false);
+    }
+  };
+
+  // Import fetched product into active entry form
+  const handleImportProduct = (p: any) => {
+    setFormTitle(p.title || "");
+    setFormDescription(p.description || "Expert ClickBank campaign leveraging a high-converting direct response marketing strategy.");
+    setFormPrice(p.expected_payout ? String(p.expected_payout) : "");
+    setFormGravity(p.gravity_score ? String(p.gravity_score) : "");
+    setFormConversionLabel(p.conversion_label || `$${parseFloat(p.expected_payout || 0).toFixed(2)} Average $/Conversion`);
+    setFormImageUrl(p.image_url || p.imageUrl || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600");
+    setFormAffiliateUrl(p.clickbank_hoplink_url || p.toolsUrl || "");
+    
+    setFormSuccess(`Imported ClickBank offer: "${p.title}" details successfully mapped to fields below.`);
+    setFormError("");
+    setAdminTab("vault"); // Return to vault tab so they can review and click Deploy
+  };
+
+  // Option to reset/clear form fields safely
+  const handleClearFormFields = () => {
+    setFormTitle("");
+    setFormDescription("");
+    setFormPrice("");
+    setFormGravity("");
+    setFormConversionLabel("");
+    setFormImageUrl("");
+    setFormAffiliateUrl("");
+    setFormError("");
+    setFormSuccess("");
+  };
+
+  // Submit product creation form
+  const handleFormSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const rawAffiliateUrl = formAffiliateUrl.trim();
+    if (!formTitle.trim() || !formDescription.trim() || !formPrice.trim() || !formGravity.trim() || !formImageUrl.trim() || !rawAffiliateUrl) {
+      setFormError("Mandatory ClickBank details missing. Title, Description, Expected Payout, Gravity Score, Image URL, and ClickBank Hoplink URL are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFormError("");
+    setFormSuccess("");
+
+    // Set affiliate to wolfjay26
+    const forcedAffiliate = "wolfjay26";
+    let cbVendorValue = "curated";
+
+    // Extract ClickBank Vendor ID from Hoplink
+    try {
+      const parsedUrl = new URL(rawAffiliateUrl);
+      const hostname = parsedUrl.hostname.toLowerCase();
+      if (hostname.includes("hop.clickbank.net")) {
+        const parts = hostname.split(".");
+        if (parts.length >= 4) {
+          cbVendorValue = parts[1];
+        } else if (parts.length === 3) {
+          cbVendorValue = parts[0];
         }
-      } catch (backupError) {
-        console.error("Both endpoints offline. Operating secure sandboxed catalog.", backupError);
+      } else {
+        const hostParts = hostname.split(".");
+        if (hostParts.length > 2 && hostParts[0] !== "www") {
+          cbVendorValue = hostParts[0];
+        }
+      }
+    } catch (e) {
+      const match = rawAffiliateUrl.match(/(?:[^.]+)\.([^.]+)\.hop\.clickbank\.net/i);
+      if (match && match[1]) {
+        cbVendorValue = match[1];
+      }
+    }
+    cbVendorValue = cbVendorValue.toLowerCase().trim();
+
+    // Construct Hoplink with forced Affiliate ID wolfjay26
+    const finalHoplink = `https://${forcedAffiliate}.${cbVendorValue}.hop.clickbank.net`;
+
+    try {
+      await addDoc(collection(db, "products"), {
+        title: formTitle.trim(),
+        description: formDescription.trim(),
+        price: parseFloat(formPrice),
+        cbVendor: cbVendorValue,
+        cbAffiliate: forcedAffiliate,
+        gravity: parseFloat(formGravity) || 0,
+        conversionLabel: formConversionLabel.trim() || `$${parseFloat(formPrice).toFixed(2)} expected payout`,
+        imageUrl: formImageUrl.trim(),
+        affiliateUrl: finalHoplink,
+        createdAt: serverTimestamp()
+      });
+
+      setFormSuccess("ClickBank affiliate piece successfully added to high-performance pipeline!");
+      setFormTitle("");
+      setFormDescription("");
+      setFormPrice("");
+      setFormCbVendor("");
+      setFormGravity("");
+      setFormConversionLabel("");
+      setFormImageUrl("");
+      setFormAffiliateUrl("");
+    } catch (err: any) {
+      console.error("Save catalog element exception:", err);
+      try {
+        handleFirestoreError(err, OperationType.CREATE, "products");
+      } catch (mappedErr: any) {
+        setFormError(`Secure Write Lock: ${mappedErr.message}`);
       }
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
+    }
+  };
+
+  // Safe Deletion routine
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      await deleteDoc(doc(db, "products", productId));
+      setActiveDeleteId(null);
+    } catch (err: any) {
+      console.error("Delete catalog element exception:", err);
+      try {
+        handleFirestoreError(err, OperationType.DELETE, `products/${productId}`);
+      } catch (mappedErr: any) {
+        setFormError(`Secure Deletion Lock: ${mappedErr.message}`);
+      }
     }
   };
 
@@ -170,26 +421,17 @@ export default function App() {
     : products.filter((p) => p.category === filteredCategory);
 
   /**
-   * Dynamically constructs the official Shopify single/multi-item permalink redirect
-   * Cleans numeric keys from GraphQL gid string if mapped (e.g. gid://shopify/ProductVariant/46294328508655)
+   * Navigates to the designated ClickBank Hoplink redirect, or ClickBank homepage as fallback
    */
-  const initiateShopifyCheckout = () => {
+  const initiateClickBankView = () => {
     if (cart.length === 0) return;
 
-    // Standard permalink construction: https://{shop}/cart/{variant_id}:{quantity},{variant_id}:{quantity}
-    const shopBase = "https://nqwmay-2e.myshopify.com/cart";
-    
-    const itemsQuery = cart.map((item) => {
-      // Clean variant ID to include numeric parameters only (Shopify requirement)
-      const cleanVariantId = item.variant.id.replace(/[^\d]/g, "");
-      return `${cleanVariantId}:${item.quantity}`;
-    }).join(",");
-
-    const checkoutUrl = `${shopBase}/${itemsQuery}`;
+    const firstItem = cart[0];
+    const destinationUrl = firstItem.product.clickbankUrl || firstItem.product.amazonUrl || "https://www.clickbank.com";
     try {
-      window.open(checkoutUrl, "_blank");
+      window.open(destinationUrl, "_blank");
     } catch (e) {
-      window.location.href = checkoutUrl;
+      window.location.href = destinationUrl;
     }
   };
 
@@ -216,7 +458,12 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           message: userMsg.text,
-          history: chatMessages.map(m => ({ role: m.role, parts: [{ text: m.text }] }))
+          history: chatMessages.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
+          activeCatalog: products.map(p => ({
+            title: p.title,
+            description: p.description,
+            price: p.priceMin.amount
+          }))
         })
       });
 
@@ -264,6 +511,133 @@ export default function App() {
       {/* Sleek Geometric Frame Details */}
       <div className="fixed inset-0 pointer-events-none border border-neutral-900 z-50 m-4 opacity-70"></div>
       
+      {/* Decryption Gate / Under Construction Overlay */}
+      <AnimatePresence>
+        {isAuthChecking && (
+          <motion.div 
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#050505] z-[9999] flex flex-col items-center justify-center font-mono p-4"
+          >
+            <div className="relative w-16 h-16 flex items-center justify-center mb-6">
+              <span className="absolute w-12 h-12 rounded-full border border-neo-gold/30 animate-ping"></span>
+              <span className="absolute w-8 h-8 rounded-full border border-neo-gold/40 animate-pulse"></span>
+              <RefreshCw className="w-6 h-6 text-neo-gold animate-spin" />
+            </div>
+            <span className="text-[10px] tracking-widest text-[#c3a05c] uppercase animate-pulse">Verifying secure access...</span>
+          </motion.div>
+        )}
+
+        {!isAuthChecking && userProfile?.role !== UserRole.ADMIN && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#050505] z-[9990] flex flex-col items-center justify-center p-6 md:p-12 overflow-y-auto select-none"
+          >
+            {/* Subtle glowing lines in background */}
+            <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[80%] max-w-[600px] h-[1px] bg-gradient-to-r from-transparent via-neo-gold/10 to-transparent"></div>
+            
+            <div className="max-w-md w-full bg-[#0a0a0a] border border-neutral-900 rounded-lg p-8 relative shadow-2xl">
+              {/* Absolute accent nodes */}
+              <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#c3a05c]"></div>
+              <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-[#c3a05c]"></div>
+              <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-[#c3a05c]"></div>
+              <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-[#c3a05c]"></div>
+
+              <div className="text-center mb-8">
+                <span className="font-mono text-[9px] text-[#c3a05c] uppercase tracking-widest block mb-4 flex items-center justify-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-[#c3a05c] animate-pulse" /> UNDER CONSTRUCTION
+                </span>
+                
+                <h1 className="font-display font-bold text-2xl tracking-[0.25em] text-neutral-100 uppercase">
+                  BuyerSpotted<span className="text-neo-gold">.</span>
+                </h1>
+                
+                <p className="font-mono text-[9px] text-neutral-550 uppercase tracking-widest mt-1">
+                  Exclusive Digital Products
+                </p>
+              </div>
+
+              <div className="space-y-4 border-t border-b border-neutral-900 py-6 my-6 font-mono text-[11px] leading-relaxed text-neutral-400">
+                <div className="flex items-center gap-2 mb-2 text-neo-gold text-[10px] tracking-wider uppercase font-semibold">
+                  <Sliders className="w-3.5 h-3.5 animate-spin" /> Coming Very Soon
+                </div>
+                <p>
+                  We are currently preparing an exclusive selection of high-converting digital products. Our website is under construction as we polish our marketplace catalog, but we will be online and available soon.
+                </p>
+                <p className="text-neutral-500 text-[10px] leading-snug">
+                  Please stay tuned for updates. Authorized administration users can log in below to continue site configuration.
+                </p>
+              </div>
+
+              {currentUser ? (
+                <div className="space-y-4 bg-neutral-950/80 border border-neutral-900 rounded p-4 text-center">
+                  <div className="flex items-center justify-center gap-1.5 font-mono text-[9px] text-rose-400 uppercase tracking-widest">
+                    <ShieldAlert className="w-4 h-4 text-rose-500 animate-pulse" />
+                    Access Denied
+                  </div>
+                  <p className="font-mono text-[10px] text-neutral-400 break-all leading-normal uppercase">
+                    Authorized Administrator credentials not found rules for:<br />
+                    <span className="text-neo-gold block mt-1 font-semibold">{currentUser.email}</span>
+                  </p>
+                  
+                  <div className="flex flex-col gap-2 pt-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          setIsLoggingIn(true);
+                          await logOutUser();
+                          await signInWithGoogle();
+                        } catch (e) {
+                          console.error("Change handle exception:", e);
+                        } finally {
+                          setIsLoggingIn(false);
+                        }
+                      }}
+                      className="w-full py-2 bg-[#c3a05c] hover:bg-yellow-600 text-black font-semibold font-mono text-[9px] tracking-widest uppercase rounded-sm transition-all cursor-pointer"
+                    >
+                      Use Administrator Account
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await logOutUser();
+                      }}
+                      className="w-full py-2 border border-neutral-800 hover:border-neutral-700 text-neutral-400 hover:text-neutral-200 font-mono text-[9px] tracking-widest uppercase rounded-sm transition-all cursor-pointer"
+                    >
+                      Logout Session
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <button
+                    onClick={async () => {
+                      try {
+                        setIsLoggingIn(true);
+                        await signInWithGoogle();
+                      } catch (e) {
+                        console.error("Gated signin option:", e);
+                      } finally {
+                        setIsLoggingIn(false);
+                      }
+                    }}
+                    disabled={isLoggingIn}
+                    className="w-full py-3 bg-neo-gold hover:bg-yellow-600 disabled:bg-neutral-800 disabled:text-neutral-600 text-[#050505] font-mono text-[10px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping"></span>
+                    {isLoggingIn ? "AUTHENTICATING..." : "ADMINISTRATOR LOG IN"}
+                  </button>
+                  <div className="text-center">
+                    <span className="text-[8px] font-mono text-neutral-600 uppercase tracking-widest">SECURE ADMIN GATEWAY</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Development Mode Warning Banner */}
       <div className="relative z-40 bg-gradient-to-r from-neutral-950 via-[#0a0a09] to-neutral-950 border-b border-neo-gold/20 px-4 py-3 text-center text-xs font-mono tracking-wider text-neo-gold flex items-center justify-center gap-2.5">
         <span className="w-2 h-2 rounded-full bg-neo-gold animate-pulse shrink-0"></span>
@@ -297,6 +671,69 @@ export default function App() {
           {/* Navigation Action Buttons */}
           <div className="flex items-center gap-3">
             
+            {/* User Session Controller */}
+            {userProfile ? (
+              <div className="flex items-center gap-2 bg-[#090909] border border-neutral-900 rounded-md p-1.5 pl-3">
+                <div className="flex flex-col text-right hidden lg:flex">
+                  <span className="font-mono text-[9px] text-neutral-400 font-semibold truncate max-w-[125px]" title={userProfile.email}>
+                    {userProfile.email}
+                  </span>
+                  <span className="font-mono text-[8px] text-neo-[#c3a05c] tracking-widest mt-0.5">
+                    {userProfile.role === UserRole.ADMIN ? "ADMIN" : "GUEST"}
+                  </span>
+                </div>
+                
+                {/* Admin Link on navigation bar for Administrators only */}
+                {userProfile.role === UserRole.ADMIN && (
+                  <button
+                    onClick={() => {
+                      setIsAdminViewActive(!isAdminViewActive);
+                    }}
+                    className={`ml-1.5 py-1.5 px-3 rounded text-[9px] font-mono tracking-widest uppercase transition-all cursor-pointer ${
+                      isAdminViewActive 
+                        ? "bg-[#c3a05c] text-black font-semibold border border-[#c3a05c]" 
+                        : "bg-neutral-900 text-neutral-300 border border-neutral-800 hover:border-neo-gold hover:text-neo-gold"
+                    }`}
+                    id="admin-nav-link"
+                    title="Manage Curated Catalog"
+                  >
+                    ADMIN
+                  </button>
+                )}
+
+                <button
+                  onClick={async () => {
+                    await logOutUser();
+                    setIsAdminViewActive(false);
+                  }}
+                  className="p-1 px-2 text-neutral-500 hover:text-rose-400 transition-all font-mono text-[9px] tracking-wider uppercase ml-1 cursor-pointer"
+                  title="Sign Out"
+                >
+                  EXIT
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={async () => {
+                  try {
+                    setIsLoggingIn(true);
+                    await signInWithGoogle();
+                  } catch (e) {
+                    console.error("Login failure:", e);
+                  } finally {
+                    setIsLoggingIn(false);
+                  }
+                }}
+                disabled={isLoggingIn}
+                className="flex items-center gap-1.5 py-2 px-3 bg-neutral-950 hover:bg-neutral-900 text-neutral-300 border border-neutral-800 hover:border-neo-gold font-mono text-[10px] font-medium tracking-wider uppercase rounded-md transition-all cursor-pointer mr-1"
+                id="google-login-btn"
+                title="Authenticate with Google"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-neo-gold animate-pulse"></div>
+                {isLoggingIn ? "CONNECTING..." : "SIGN IN"}
+              </button>
+            )}
+
             {/* SpottedAI Advisor trigger */}
             <button 
               onClick={() => setIsChatOpen(!isChatOpen)}
@@ -331,227 +768,681 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-6 py-8 md:px-12 md:py-16">
         
         {/* Cinematic Announcement Banner */}
-        <section className="mb-12 md:mb-20 overflow-hidden relative border border-neutral-900 rounded-xl bg-gradient-to-br from-neutral-950 to-[#0c0c0c] p-8 md:p-14">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-zinc-900/20 rounded-full blur-3xl -z-10"></div>
-          <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-stone-900/10 rounded-full blur-3xl -z-10"></div>
-          
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded-full font-mono text-[9px] tracking-widest text-[#c3a05c] uppercase mb-5">
-              <Sparkles className="w-3 h-3 text-neo-gold" /> Isolated Performance Standards
-            </div>
-            
-            <h2 className="font-display text-3xl md:text-5xl font-light tracking-tight text-neutral-100 leading-tight mb-4">
-              Tactile Precision.<br className="hidden md:inline" /> 
-              <span className="font-medium text-neo-gold">Zero Distraction.</span>
-            </h2>
-            
-            <p className="text-sm md:text-base text-neutral-400 font-light leading-relaxed mb-8">
-              BuyerSpotted curates physical elements engineered for total focus, sensory isolation, and mechanical synchronicity. Connect dynamically through encrypted Shopify relays for frictionless secure checkout.
-            </p>
-
-            <div className="flex flex-wrap gap-4">
+        {isAdminViewActive && userProfile?.role === UserRole.ADMIN ? (
+          <section className="mb-20 min-h-[50vh]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-900 pb-5 mb-8 gap-4">
+              <div>
+                <span className="font-mono text-[9px] text-[#c3a05c] uppercase tracking-widest block mb-1">SECURE CONSOLE ENTRY</span>
+                <div className="flex flex-col md:flex-row md:items-center gap-4 mt-1">
+                  <h3 className="font-display font-semibold text-lg md:text-xl tracking-wider text-neutral-100 uppercase">
+                    Admin Workspace
+                  </h3>
+                  
+                  {/* Premium Admin Tabs */}
+                  <div className="flex items-center bg-neutral-950 border border-neutral-900 p-0.5 rounded-sm">
+                    <button
+                      onClick={() => setAdminTab("vault")}
+                      className={`px-3 py-1.5 font-mono text-[9px] tracking-widest uppercase rounded-xs transition-all cursor-pointer ${
+                        adminTab === "vault"
+                          ? "bg-neo-gold text-black font-semibold"
+                          : "text-neutral-550 hover:text-neutral-300"
+                      }`}
+                    >
+                      Products Vault
+                    </button>
+                    <button
+                      onClick={() => setAdminTab("warehouse")}
+                      className={`px-3 py-1.5 font-mono text-[9px] tracking-widest uppercase rounded-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                        adminTab === "warehouse"
+                          ? "bg-neo-gold text-black font-semibold"
+                          : "text-neutral-550 hover:text-neutral-300"
+                      }`}
+                      id="tab-digital-warehouse"
+                    >
+                      <Sparkles className="w-3 h-3 text-current animate-pulse" /> Digital Warehouse
+                    </button>
+                  </div>
+                </div>
+              </div>
               <button 
-                onClick={() => setIsChatOpen(true)}
-                className="glow-btn flex items-center gap-2 px-5 py-3 bg-neo-gold hover:bg-yellow-600 text-[#050505] font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm transition-all"
-                id="banner-chat-cta"
+                onClick={() => setIsAdminViewActive(false)}
+                className="px-4 py-2 border border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700 bg-neutral-950 font-mono text-[9px] uppercase tracking-wider rounded-sm transition-all cursor-pointer"
               >
-                Consult Curator <ArrowUpRight className="w-3.5 h-3.5" />
+                RETURN TO HOME CATALOG
               </button>
-              <a 
-                href="#catalog-view" 
-                className="flex items-center gap-2 px-5 py-3 bg-transparent hover:bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm transition-all"
-              >
-                Inspect Vault
-              </a>
-            </div>
-          </div>
-        </section>
-
-        {/* Catalog Control Header */}
-        <section id="catalog-view" className="mb-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-neutral-900 pb-6">
-            <div>
-              <h3 className="font-display font-semibold text-lg md:text-xl tracking-wider uppercase text-neutral-200">
-                Curated Index
-              </h3>
-              <p className="font-mono text-xs text-neutral-500 mt-1">
-                Displaying {filteredProducts.length} elite material elements
-              </p>
             </div>
 
-            {/* Category Filter Pills (Mono Aesthetic) */}
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setFilteredCategory(cat)}
-                  className={`px-4 py-2 font-mono text-[10px] tracking-wider uppercase border rounded-sm transition-all ${
-                    filteredCategory === cat 
-                      ? "border-neo-gold text-neo-gold bg-[#c3a05c]/5" 
-                      : "border-neutral-900 text-neutral-400 hover:text-neutral-200 hover:border-neutral-800 bg-neutral-950"
-                  }`}
-                >
-                  {cat === "All" ? "ALL SCHEMAS" : cat}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
+            {adminTab === "warehouse" ? (
+              <div className="bg-neutral-950 border border-neutral-900 p-6 rounded-lg">
+                <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-900 pb-5 mb-6 gap-4">
+                  <div>
+                    <h4 className="font-mono text-xs text-neo-gold uppercase tracking-widest font-bold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-neo-gold animate-spin" /> ClickBank Digital Warehouse Intelligence
+                    </h4>
+                    <p className="font-mono text-[10px] text-neutral-500 uppercase mt-1">
+                      Query high-performance affiliate products and populate your Isolation Vault instantly
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {fetchedProducts.length > 0 && (
+                      <button
+                        onClick={() => setFetchedProducts([])}
+                        className="px-4 py-2.5 border border-neutral-800 hover:border-rose-950 bg-neutral-900 text-neutral-500 hover:text-rose-450 font-mono text-[9px] uppercase tracking-wider rounded-sm transition-all cursor-pointer"
+                      >
+                        Clear Results
+                      </button>
+                    )}
+                    <button
+                      onClick={handleFetchClickBankProducts}
+                      disabled={isFetchingCB}
+                      className="glow-btn px-5 py-2.5 bg-neo-gold hover:bg-yellow-650 disabled:bg-neutral-900 disabled:text-neutral-600 text-black font-mono text-[9px] font-bold tracking-widest uppercase rounded-sm flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      {isFetchingCB ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> ANALYZING MARKETPLACE...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" /> FETCH PRODUCTS
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
 
-        {/* Product Grid Area */}
-        <section className="mb-20">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <RefreshCw className="w-10 h-10 text-neo-gold animate-spin" />
-              <p className="font-mono text-xs tracking-wider text-neutral-400 uppercase">Synchronizing with Shopify Registry...</p>
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-24 border border-dashed border-neutral-900 rounded-lg">
-              <Sliders className="w-8 h-8 text-neutral-600 mx-auto mb-4" />
-              <p className="font-mono text-xs tracking-wider text-neutral-400 uppercase">No elements matched active filter matrix</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((p) => {
-                const primaryImage = p.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600";
-                const secondaryImage = p.images[1]?.url || primaryImage;
-                
-                return (
-                  <motion.article 
-                    key={p.id}
-                    layoutId={`product-card-${p.id}`}
-                    initial={{ opacity: 0, y: 15 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.35 }}
-                    className="group flex flex-col justify-between bg-neutral-950 border border-neutral-900 rounded-lg p-5 hover:border-neutral-800 transition-all cursor-pointer relative"
-                    onClick={() => openQuickView(p)}
-                  >
+                {fetchErrorCB && (
+                  <div className="mb-6 p-4 bg-rose-950/20 border border-rose-900 text-rose-400 font-mono text-[10px] uppercase rounded">
+                    Error scanning marketplace database: {fetchErrorCB}
+                  </div>
+                )}
+
+                {isFetchingCB ? (
+                  <div className="flex flex-col items-center justify-center py-28 border border-dashed border-neutral-905 rounded bg-[#030303]/40">
+                    <div className="relative w-16 h-16 flex items-center justify-center mb-6">
+                      <span className="absolute w-12 h-12 rounded-full border border-neo-gold/30 animate-ping"></span>
+                      <span className="absolute w-8 h-8 rounded-full border border-neo-gold/40 animate-pulse"></span>
+                      <Sparkles className="w-6 h-6 text-neo-gold animate-spin" />
+                    </div>
+                    <span className="font-mono text-xs text-neutral-300 font-semibold tracking-wider uppercase mb-1.5 animate-bounce">Scanning ClickBank Marketplace</span>
+                    <span className="font-mono text-[10px] text-neutral-500 uppercase max-w-sm text-center leading-relaxed">
+                      Assessing Gravity metrics, sales-letter conversion structures, and support tools pages for elite campaigns...
+                    </span>
+                  </div>
+                ) : fetchedProducts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-24 border border-dashed border-neutral-900 rounded bg-[#030303]/20">
+                    <Sparkles className="w-8 h-8 text-neutral-800 mb-4 animate-pulse" />
+                    <span className="font-mono text-xs text-neutral-500 uppercase tracking-widest mb-1">Database Idle</span>
+                    <p className="font-mono text-[9px] text-neutral-600 uppercase max-w-xs text-center leading-relaxed">
+                      Click the "Fetch Products" button above to initiate ClickBank market query.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-neutral-900 rounded bg-[#030303]/40">
+                    <table className="w-full text-left border-collapse font-mono text-[11px]">
+                      <thead>
+                        <tr className="border-b border-neutral-900 bg-neutral-950/80 uppercase text-[9px] text-neutral-400 font-semibold">
+                          <th className="p-4 w-12">Preview</th>
+                          <th className="p-4 max-w-[200px]">Product details</th>
+                          <th className="p-4 max-w-[300px]">Angle / Campaign Funnel Copy</th>
+                          <th className="p-4 text-center">Gravity Score (Grav)</th>
+                          <th className="p-4 text-right">Avg $/Conversion (APV)</th>
+                          <th className="p-4 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-900 text-neutral-300">
+                        {fetchedProducts.map((p, idx) => (
+                          <tr key={idx} className="hover:bg-neutral-900/30 transition-colors">
+                            <td className="p-4">
+                              <img
+                                src={p.image_url || p.imageUrl}
+                                alt={p.title}
+                                referrerPolicy="no-referrer"
+                                className="w-12 h-12 object-cover rounded border border-neutral-800 grayscale hover:grayscale-0 transition-all shrink-0 bg-neutral-950"
+                              />
+                            </td>
+                            <td className="p-4 max-w-[200px]">
+                              <div className="flex flex-col">
+                                <span className="font-display font-medium text-xs text-neutral-200 tracking-wide">{p.title}</span>
+                                <a
+                                  href={p.clickbank_hoplink_url || p.toolsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[9px] text-[#c3a05c] hover:text-[#d3b06c] hover:underline flex items-center gap-1.5 mt-2 max-w-fit"
+                                >
+                                  HopLink <ExternalLink className="w-3 h-3 shrink-0" />
+                                </a>
+                              </div>
+                            </td>
+                            <td className="p-4 text-neutral-400 font-light max-w-[300px] leading-relaxed">
+                              <p className="text-[10px] text-neutral-300 uppercase leading-snug">
+                                {p.description}
+                              </p>
+                              {p.conversion_label && (
+                                <span className="px-1.5 py-0.5 bg-neutral-900 border border-neutral-800 rounded font-bold text-[8px] text-neo-gold uppercase tracking-wider inline-block mt-1.5">
+                                  {p.conversion_label}
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 text-center font-bold text-neutral-200 text-xs text-neo-gold">
+                              {parseFloat(p.gravity_score || p.gravity || 0).toFixed(1)}
+                            </td>
+                            <td className="p-4 text-right font-semibold text-emerald-450 text-xs font-mono">
+                              ${parseFloat(p.expected_payout || p.payout || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-4 text-right">
+                              <button
+                                onClick={() => handleImportProduct(p)}
+                                className="px-3.5 py-2 bg-neo-gold hover:bg-yellow-600 text-black font-mono text-[9px] font-bold tracking-widest uppercase rounded-sm transition-all cursor-pointer inline-flex items-center gap-1"
+                              >
+                                {formTitle === p.title ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-black shrink-0" /> Imported
+                                  </>
+                                ) : (
+                                  <>
+                                    Import <Plus className="w-3 h-3 text-black shrink-0" />
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Add Product Form */}
+                <div className="lg:col-span-12 xl:col-span-5 bg-neutral-950 border border-neutral-900 p-6 rounded-lg h-fit">
+                  <h4 className="font-mono text-[9px] text-neo-gold uppercase tracking-widest mb-6 pb-2 border-b border-neutral-900 flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <Plus className="w-4 h-4 text-neo-gold" /> REGISTER NEW COMPILATION
+                    </span>
+                    {(formTitle || formDescription || formPrice || formImageUrl || formAffiliateUrl) && (
+                      <button 
+                        type="button" 
+                        onClick={handleClearFormFields}
+                        className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-rose-400 hover:border-rose-950 font-mono text-[8px] uppercase tracking-widest rounded-sm transition-colors cursor-pointer"
+                      >
+                        Clear Fields
+                      </button>
+                    )}
+                  </h4>
+
+                  {formError && (
+                    <div className="mb-4 p-3 bg-rose-950/40 border border-rose-900 text-rose-400 font-mono text-[10px] uppercase rounded">
+                      {formError}
+                    </div>
+                  )}
+                  {formSuccess && (
+                    <div className="mb-4 p-3 bg-emerald-950/40 border border-emerald-900 text-emerald-400 font-mono text-[10px] uppercase rounded">
+                      {formSuccess}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleFormSubmit} className="space-y-4">
                     <div>
-                      {/* Image Frame with Double-Exposure Hover effect */}
-                      <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-neutral-900 mb-5 border border-neutral-900">
-                        <img 
-                          src={primaryImage} 
-                          alt={p.title}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover grayscale brightness-90 contrast-105 group-hover:opacity-0 transition-opacity duration-500"
-                        />
-                        <img 
-                          src={secondaryImage} 
-                          alt={p.title}
-                          referrerPolicy="no-referrer"
-                          className="absolute inset-0 w-full h-full object-cover grayscale brightness-95 contrast-105 opacity-0 group-hover:opacity-100 transition-opacity duration-500 scale-102"
-                        />
-                        
-                        {/* Interactive floating indicator */}
-                        <div className="absolute bottom-3 right-3 p-1.5 bg-[#050505]/80 backdrop-blur-md border border-neutral-800 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-sm">
-                          <Eye className="w-3.5 h-3.5 text-neo-gold" />
-                        </div>
-
-                        {p.category && (
-                          <div className="absolute top-3 left-3 px-2 py-0.5 bg-[#050505]/80 backdrop-blur-md rounded-sm border border-neutral-800">
-                            <span className="font-mono text-[8px] tracking-widest text-[#c3a05c] uppercase">
-                              {p.category}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Title & Metadata */}
-                      <div className="flex items-start justify-between gap-4 mb-2">
-                        <h4 className="font-display font-medium text-base text-neutral-100 group-hover:text-neo-gold transition-colors truncate">
-                          {p.title}
-                        </h4>
-                      </div>
-
-                      {/* Brief description excerpt */}
-                      <p className="text-xs text-neutral-400 font-light leading-relaxed mb-5 line-clamp-2">
-                        {p.description}
-                      </p>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5">
+                        Title *
+                      </label>
+                      <input 
+                        type="text"
+                        required
+                        value={formTitle}
+                        onChange={(e) => setFormTitle(e.target.value)}
+                        placeholder='e.g., Alpilean Weight Loss System'
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                      />
                     </div>
 
                     <div>
-                      {/* Technical specifications panel on hover */}
-                      {p.specifications && (
-                        <div className="hidden group-hover:block mb-4 pt-3 border-t border-neutral-900">
-                          <div className="grid grid-cols-2 gap-y-1 gap-x-2 font-mono text-[9px]">
-                            {Object.entries(p.specifications).slice(0, 2).map(([k, v]) => (
-                              <div key={k} className="truncate">
-                                <span className="text-neutral-500">{k}:</span> <span className="text-neutral-300">{v}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5">
+                        Description *
+                      </label>
+                      <textarea 
+                        required
+                        rows={3}
+                        value={formDescription}
+                        onChange={(e) => setFormDescription(e.target.value)}
+                        placeholder="Tailor product facets (materials, tactile properties, conversion parameters)..."
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors resize-none"
+                      />
+                    </div>
 
-                      {/* Bottom row: Price & Cart Addition controller */}
-                      <div className="flex items-center justify-between pt-3 border-t border-neutral-900">
-                        <div className="flex flex-col">
-                          <span className="font-mono text-[10px] text-neutral-500 tracking-wider uppercase">Unit Cost</span>
-                          <span className="font-mono text-sm font-semibold text-neutral-200">
-                            ${parseFloat(p.priceMin.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5">
+                          Expected Payout (USD) *
+                        </label>
+                        <input 
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          required
+                          value={formPrice}
+                          onChange={(e) => setFormPrice(e.target.value)}
+                          placeholder="e.g., 139.00"
+                          className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5">
+                          Gravity Score *
+                        </label>
+                        <input 
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          required
+                          value={formGravity}
+                          onChange={(e) => setFormGravity(e.target.value)}
+                          placeholder="e.g., 120.4"
+                          className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>Conversion Label (Expected Payout) *</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic">display reward structure</span>
+                      </label>
+                      <input 
+                        type="text"
+                        required
+                        value={formConversionLabel}
+                        onChange={(e) => setFormConversionLabel(e.target.value)}
+                        placeholder="e.g., $139.00 average payout per conversion"
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5">
+                        Image URL *
+                      </label>
+                      <input 
+                        type="url"
+                        required
+                        value={formImageUrl}
+                        onChange={(e) => setFormImageUrl(e.target.value)}
+                        placeholder="https://images.unsplash.com/..."
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>ClickBank Hoplink URL *</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic">required</span>
+                      </label>
+                      <input 
+                        type="url"
+                        required
+                        value={formAffiliateUrl}
+                        onChange={(e) => setFormAffiliateUrl(e.target.value)}
+                        placeholder="https://wolfjay26.vendor.hop.clickbank.net"
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                      />
+                      <div className="mt-2.5 p-3 bg-[#050505] border border-neutral-900 rounded font-mono text-[8px] text-neutral-500 uppercase leading-relaxed space-y-1">
+                        <div>
+                          Affiliate Nickname: <span className="text-neo-gold font-semibold">wolfjay26</span> (locked)
+                        </div>
+                        <div className="break-all">
+                          Extracted Vendor: <span className="text-neutral-300 font-semibold lowercase">
+                            {(() => {
+                              let extracted = "vendor";
+                              if (formAffiliateUrl.trim()) {
+                                try {
+                                  const u = new URL(formAffiliateUrl.trim());
+                                  const host = u.hostname.toLowerCase();
+                                  if (host.includes("hop.clickbank.net")) {
+                                    const parts = host.split(".");
+                                    extracted = parts.length >= 4 ? parts[1] : (parts.length === 3 ? parts[0] : "vendor");
+                                  } else {
+                                    extracted = host.split(".")[0];
+                                  }
+                                } catch(e) {
+                                  const match = formAffiliateUrl.trim().match(/(?:[^.]+)\.([^.]+)\.hop\.clickbank\.net/i);
+                                  if (match && match[1]) extracted = match[1];
+                                }
+                              }
+                              return extracted;
+                            })()}
                           </span>
                         </div>
-
-                        <button
-                          id={`add-btn-${p.id}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (p.variants[0]) {
-                              handleAddToCart(p, p.variants[0], 1);
-                            }
-                          }}
-                          className="px-3.5 py-2 bg-neutral-900 hover:bg-neo-gold hover:text-black border border-neutral-800 transition-colors font-mono text-[9px] tracking-widest uppercase rounded-sm"
-                        >
-                          Secure Shell
-                        </button>
+                        <div className="break-all border-t border-neutral-900 pt-1 mt-1">
+                          Resulting Hoplink: <span className="text-neo-gold font-semibold lowercase">
+                            {(() => {
+                              let extracted = "vendor";
+                              if (formAffiliateUrl.trim()) {
+                                try {
+                                  const u = new URL(formAffiliateUrl.trim());
+                                  const host = u.hostname.toLowerCase();
+                                  if (host.includes("hop.clickbank.net")) {
+                                    const parts = host.split(".");
+                                    extracted = parts.length >= 4 ? parts[1] : (parts.length === 3 ? parts[0] : "vendor");
+                                  } else {
+                                    extracted = host.split(".")[0];
+                                  }
+                                } catch(e) {
+                                  const match = formAffiliateUrl.trim().match(/(?:[^.]+)\.([^.]+)\.hop\.clickbank\.net/i);
+                                  if (match && match[1]) extracted = match[1];
+                                }
+                              }
+                              return `https://wolfjay26.${extracted.toLowerCase().trim()}.hop.clickbank.net`;
+                            })()}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </motion.article>
-                );
-              })}
-            </div>
-          )}
-        </section>
 
-        {/* Why BuyerSpotted section */}
-        <section className="mb-20 border-t border-neutral-900 pt-16 grid grid-cols-1 md:grid-cols-3 gap-10">
-          <div className="flex gap-4">
-            <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
-              <Cpu className="w-5 h-5" />
-            </div>
-            <div>
-              <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Computational Sourcing</h5>
-              <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                Every listed element must satisfy physical-material isolation criteria before deployment to our shop registry.
-              </p>
-            </div>
-          </div>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="glow-btn w-full py-3 bg-neo-gold hover:bg-yellow-600 disabled:bg-neutral-800 disabled:text-neutral-600 text-black font-mono text-[10px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      {isSubmitting ? "REPRODUCING RECORD..." : "DEPLOY CLICKBANK PRODUCT"}
+                    </button>
+                  </form>
+                </div>
 
-          <div className="flex gap-4">
-            <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Hand-Checked Verification</h5>
-              <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                Direct cryptographic keys securely paired over local silicon layouts. We never permit batch-produced consumer slop.
-              </p>
-            </div>
-          </div>
+                {/* Active Catalog Manage List with Confirmed Delete Block */}
+                <div className="lg:col-span-12 xl:col-span-7 bg-neutral-950 border border-neutral-900 p-6 rounded-lg h-fit">
+                  <h4 className="font-mono text-[9px] text-[#c3a05c] uppercase tracking-widest mb-6 pb-2 border-b border-neutral-900 font-bold">
+                    ACTIVE HOUSE ELEMENTS ({products.length})
+                  </h4>
 
-          <div className="flex gap-4">
-            <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
-              <X className="w-5 h-5 rotate-45" />
-            </div>
-            <div>
-              <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Direct Shopify Handover</h5>
-              <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                Zero visual clutter or third-party gateways. Instant, secure Shopify permalink checkout routing is integrated natively.
-              </p>
-            </div>
-          </div>
-        </section>
+                  {products.length === 0 ? (
+                    <div className="text-center py-24 border border-dashed border-neutral-900 rounded font-mono text-xs text-neutral-500 uppercase tracking-widest">
+                      no custom elements in database
+                    </div>
+                  ) : (
+                    <div className="space-y-4 divide-y divide-neutral-900">
+                      {products.map((p, idx) => (
+                        <div key={p.id} className={`flex items-start justify-between gap-4 pt-4 ${idx === 0 ? 'pt-0' : ''}`}>
+                          <div className="flex gap-4">
+                            <img 
+                              src={p.images[0]?.url} 
+                              alt={p.title} 
+                              referrerPolicy="no-referrer"
+                              className="w-14 h-14 rounded object-cover border border-neutral-900 grayscale bg-neutral-900 shrink-0"
+                            />
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-display font-medium text-sm text-neutral-200 truncate">{p.title}</span>
+                              <span className="font-mono text-[9px] text-neutral-500 mt-1 uppercase truncate">Vendor: {p.cbVendor || "N/A"}</span>
+                              <span className="font-mono text-[10px] text-neo-gold mt-1">${parseFloat(p.priceMin.amount).toFixed(2)} USD</span>
+                            </div>
+                          </div>
+
+                          {/* Confirmation Deletion UI block */}
+                          <div className="shrink-0 pt-1">
+                            {activeDeleteId === p.id ? (
+                              <div className="flex flex-col items-end gap-2 p-2.5 bg-[#0e0404] border border-rose-900/40 rounded-md">
+                                <span className="text-[8px] text-rose-500 uppercase font-mono tracking-widest">CONFIRM REMOVE PIECE?</span>
+                                <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => handleDeleteProduct(p.id)} 
+                                    className="px-3 py-1.5 bg-rose-950 text-rose-200 text-[8px] font-mono tracking-widest hover:bg-rose-900 transition-colors rounded-sm border border-rose-800 cursor-pointer"
+                                  >
+                                    YES
+                                  </button>
+                                  <button 
+                                    onClick={() => setActiveDeleteId(null)} 
+                                    className="px-3 py-1.5 bg-neutral-900 text-neutral-400 text-[8px] font-mono tracking-widest hover:text-neutral-200 transition-colors rounded-sm border border-neutral-800 cursor-pointer"
+                                  >
+                                    NO
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={() => setActiveDeleteId(p.id)}
+                                className="flex items-center gap-1.5 px-3 py-2 border border-rose-950/30 text-rose-500 bg-rose-950/5 hover:bg-rose-100 hover:text-black transition-all font-mono text-[8px] tracking-widest uppercase rounded-sm cursor-pointer"
+                                title="Remove item"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> REMOVE
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+        ) : (
+          <>
+            <section className="mb-12 md:mb-20 overflow-hidden relative border border-neutral-900 rounded-xl bg-gradient-to-br from-neutral-950 to-[#0c0c0c] p-8 md:p-14">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-zinc-900/20 rounded-full blur-3xl -z-10"></div>
+              <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-stone-900/10 rounded-full blur-3xl -z-10"></div>
+              
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded-full font-mono text-[9px] tracking-widest text-[#c3a05c] uppercase mb-5">
+                  <Sparkles className="w-3 h-3 text-neo-gold" /> Isolated Performance Standards
+                </div>
+                
+                <h2 className="font-display text-3xl md:text-5xl font-light tracking-tight text-neutral-100 leading-tight mb-4">
+                  Tactile Precision.<br className="hidden md:inline" /> 
+                  <span className="font-medium text-neo-gold">Zero Distraction.</span>
+                </h2>
+                
+                <p className="text-sm md:text-base text-neutral-400 font-light leading-relaxed mb-8">
+                  BuyerSpotted curates physical elements engineered for total focus, sensory isolation, and mechanical synchronicity. Explore selected items and browse options seamlessly.
+                </p>
+
+                <div className="flex flex-wrap gap-4">
+                  <button 
+                    onClick={() => setIsChatOpen(true)}
+                    className="glow-btn flex items-center gap-2 px-5 py-3 bg-neo-gold hover:bg-yellow-600 text-[#050505] font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm transition-all cursor-pointer"
+                    id="banner-chat-cta"
+                  >
+                    Consult Curator <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                  <a 
+                    href="#catalog-view" 
+                    className="flex items-center gap-2 px-5 py-3 bg-transparent hover:bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm transition-all"
+                  >
+                    Inspect Vault
+                  </a>
+                </div>
+              </div>
+            </section>
+
+            {/* Catalog Control Header */}
+            <section id="catalog-view" className="mb-10">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-neutral-900 pb-6">
+                <div>
+                  <h3 className="font-display font-semibold text-lg md:text-xl tracking-wider uppercase text-neutral-200">
+                    Curated Index
+                  </h3>
+                  <p className="font-mono text-xs text-neutral-500 mt-1">
+                    Displaying {filteredProducts.length} elite material elements
+                  </p>
+                </div>
+
+                {/* Category Filter Pills (Mono Aesthetic) */}
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setFilteredCategory(cat)}
+                      className={`px-4 py-2 font-mono text-[10px] tracking-wider uppercase border rounded-sm transition-all cursor-pointer ${
+                        filteredCategory === cat 
+                          ? "border-neo-gold text-neo-gold bg-[#c3a05c]/5" 
+                          : "border-neutral-900 text-neutral-400 hover:text-neutral-200 hover:border-neutral-800 bg-neutral-950"
+                      }`}
+                    >
+                      {cat === "All" ? "ALL SCHEMAS" : cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Product Grid Area */}
+            <section className="mb-20">
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-4">
+                  <RefreshCw className="w-10 h-10 text-neo-gold animate-spin" />
+                  <p className="font-mono text-xs tracking-wider text-neutral-400 uppercase">Synchronizing with registry...</p>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="text-center py-24 border border-dashed border-neutral-900 rounded-lg">
+                  <Sliders className="w-8 h-8 text-neutral-600 mx-auto mb-4" />
+                  <p className="font-mono text-[10px] tracking-widest text-[#c3a05c] uppercase">Curated vault empty</p>
+                  <p className="font-mono text-[9px] text-neutral-500 mt-2 uppercase">Custom dynamic pieces will reside here upon Administrator deposit.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredProducts.map((p) => {
+                    const primaryImage = p.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600";
+                    const secondaryImage = p.images[1]?.url || primaryImage;
+                    
+                    return (
+                      <motion.article 
+                        key={p.id}
+                        layoutId={`product-card-${p.id}`}
+                        initial={{ opacity: 0, y: 15 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.35 }}
+                        className="group flex flex-col justify-between bg-neutral-950 border border-neutral-900 rounded-lg p-5 hover:border-neutral-800 transition-all cursor-pointer relative"
+                        onClick={() => openQuickView(p)}
+                      >
+                        <div>
+                          {/* Image Frame with Double-Exposure Hover effect */}
+                          <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-neutral-900 mb-5 border border-neutral-900">
+                            <img 
+                              src={primaryImage} 
+                              alt={p.title}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover grayscale brightness-90 contrast-105 group-hover:opacity-0 transition-opacity duration-500"
+                            />
+                            <img 
+                              src={secondaryImage} 
+                              alt={p.title}
+                              referrerPolicy="no-referrer"
+                              className="absolute inset-0 w-full h-full object-cover grayscale brightness-95 contrast-105 opacity-0 group-hover:opacity-100 transition-opacity duration-500 scale-102"
+                            />
+                            
+                            {/* Interactive floating indicator */}
+                            <div className="absolute bottom-3 right-3 p-1.5 bg-[#050505]/80 backdrop-blur-md border border-neutral-800 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-sm">
+                              <Eye className="w-3.5 h-3.5 text-neo-gold" />
+                            </div>
+
+                            {p.category && (
+                              <div className="absolute top-3 left-3 px-2 py-0.5 bg-[#050505]/80 backdrop-blur-md rounded-sm border border-neutral-800">
+                                <span className="font-mono text-[8px] tracking-widest text-[#c3a05c] uppercase">
+                                  {p.category}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Title & Metadata */}
+                          <div className="flex items-start justify-between gap-4 mb-2">
+                            <h4 className="font-display font-medium text-base text-neutral-100 group-hover:text-neo-gold transition-colors truncate">
+                              {p.title}
+                            </h4>
+                          </div>
+
+                          {/* Brief description excerpt */}
+                          <p className="text-xs text-neutral-400 font-light leading-relaxed mb-5 line-clamp-2">
+                            {p.description}
+                          </p>
+                        </div>
+
+                        <div>
+                          {/* Technical specifications panel on hover */}
+                          {p.specifications && (
+                            <div className="hidden group-hover:block mb-4 pt-3 border-t border-neutral-900">
+                              <div className="grid grid-cols-2 gap-y-1 gap-x-2 font-mono text-[9px]">
+                                {Object.entries(p.specifications).slice(0, 2).map(([k, v]) => (
+                                  <div key={k} className="truncate">
+                                    <span className="text-neutral-500">{k}:</span> <span className="text-neutral-300">{v}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Bottom row: Price & Cart Addition controller */}
+                          <div className="flex items-center justify-between pt-3 border-t border-neutral-900">
+                            <div className="flex flex-col min-w-0 pr-2">
+                              <span className="font-mono text-[9px] text-neo-gold tracking-wider uppercase font-semibold truncate block">
+                                {p.conversionLabel || "Expected Payout"}
+                              </span>
+                              <span className="font-mono text-xs font-semibold text-neutral-300 mt-0.5">
+                                Comm: ${parseFloat(p.priceMin.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+
+                            <button
+                              id={`add-btn-${p.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (p.variants[0]) {
+                                  handleAddToCart(p, p.variants[0], 1);
+                                }
+                              }}
+                              className="px-3.5 py-2 bg-neutral-900 hover:bg-neo-gold hover:text-black border border-neutral-800 transition-colors font-mono text-[9px] tracking-widest uppercase rounded-sm cursor-pointer"
+                            >
+                              Secure Shell
+                            </button>
+                          </div>
+                        </div>
+                      </motion.article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* Why BuyerSpotted section */}
+            <section className="mb-20 border-t border-neutral-900 pt-16 grid grid-cols-1 md:grid-cols-3 gap-10">
+              <div className="flex gap-4">
+                <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <div>
+                  <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Computational Sourcing</h5>
+                  <p className="text-xs text-neutral-400 font-light leading-relaxed">
+                    Every listed element must satisfy physical-material isolation criteria before deployment to our shop registry.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Hand-Checked Verification</h5>
+                  <p className="text-xs text-neutral-400 font-light leading-relaxed">
+                    Direct cryptographic keys securely paired over local silicon layouts. We never permit batch-produced consumer slop.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
+                  <X className="w-5 h-5 rotate-45" />
+                </div>
+                <div>
+                  <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Direct Channel Access</h5>
+                  <p className="text-xs text-neutral-400 font-light leading-relaxed">
+                    Seamless integration with premium search registries. Instantly view component availability and place queries securely.
+                  </p>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
 
       </main>
 
@@ -679,13 +1570,13 @@ export default function App() {
                   </div>
 
                   <button
-                    onClick={initiateShopifyCheckout}
+                    onClick={initiateClickBankView}
                     className="glow-btn w-full py-4 bg-neo-gold hover:bg-yellow-600 text-black font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-2 transition-all"
                   >
-                    PROCEED TO SHOPIFY CHECKOUT <ExternalLink className="w-3.5 h-3.5" />
+                    PROCEED TO CLICKBANK <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                   <p className="font-mono text-[8px] text-center text-neutral-600 uppercase mt-3">
-                    Transacting over secure, developmental Shopify endpoints.
+                    Redirecting to matching secure ClickBank Hoplink.
                   </p>
                 </div>
               )}
@@ -790,7 +1681,7 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-2 mt-3 p-2 bg-neutral-950 border border-neutral-900 rounded font-mono text-[8px] text-neutral-500">
                   <Info className="w-3.5 h-3.5 text-neo-gold shrink-0" />
-                  <span className="uppercase">SpottedAI recommendations bypass secondary intermediaries for zero-flicker checkout.</span>
+                  <span className="uppercase">SpottedAI recommendations locate original premium products dynamically.</span>
                 </div>
               </div>
             </motion.aside>
