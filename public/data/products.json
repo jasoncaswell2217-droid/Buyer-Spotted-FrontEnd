@@ -1,51 +1,79 @@
 [
   {
-    "title": "Moon Reading - Interactive Astrology Reading",
-    "funnel_angle": "Quiz + VSL (Interactive personalized reading)",
-    "avg_per_conversion": "$25.42",
-    "gravity_score": 74.4,
-    "affiliate_tools_url": "https://www.moonreading.com/affiliates/"
+    "title": "The Brain Song",
+    "funnel_angle": "Killer NEW Memory Offer with scientist-endorsed VSL",
+    "avg_per_conversion": 52.67,
+    "gravity_score": 172.1,
+    "affiliate_tools_url": "https://forbrainsong.com/Affiliates/",
+    "seo_headline": "Unlock Your Genius: Discover the \"Brain Song\" That Restores Memory Fast",
+    "who_it_is_for": "Seniors struggling with memory loss, students looking for a mental edge, and professionals facing brain fog.",
+    "why_it_works": "Uses specific binaural frequencies endorsed by neuroscientists to stimulate neural pathways and repair cognitive function.",
+    "seo_keywords": ["memory restoration", "brain health supplement", "binaural beats for focus", "neuroscientist memory secret", "reverse brain fog"]
   },
   {
-    "title": "Billionaire Brain Wave",
-    "funnel_angle": "VSL (Binaural beats audio)",
-    "avg_per_conversion": "$38.90",
-    "gravity_score": 53.9,
-    "affiliate_tools_url": "https://billionairebrainwave.com/affiliates/"
+    "title": "YU SLEEP",
+    "funnel_angle": "#1 Sleep Offer with high-converting March 2026 VSL",
+    "avg_per_conversion": 135.30,
+    "gravity_score": 115.7,
+    "affiliate_tools_url": "http://getyusleep.com/aff",
+    "seo_headline": "Sleep Like a Baby Tonight: The Science-Backed \"YU SLEEP\" Method for Deep Rest",
+    "who_it_is_for": "Insomniacs, light sleepers, and high-stress individuals who wake up feeling exhausted every morning.",
+    "why_it_works": "A unique program that resets your circadian rhythm using a natural, non-habit-forming nocturnal routine.",
+    "seo_keywords": ["cure insomnia naturally", "deep sleep techniques", "stop snoring fast", "better sleep quality", "natural sleep aid"]
   },
   {
-    "title": "VisiFlora - Vision / Gut Health Hybrid",
-    "funnel_angle": "VSL (Supplement funnel)",
-    "avg_per_conversion": "$125.60",
-    "gravity_score": 54.5,
-    "affiliate_tools_url": "https://visiflora.com/affiliates/"
+    "title": "The Genius Song",
+    "funnel_angle": "Neuroscientist-endorsed brain wave synchronization VSL",
+    "avg_per_conversion": 52.95,
+    "gravity_score": 112.2,
+    "affiliate_tools_url": "https://gogeniuswave.com/Affiliates/",
+    "seo_headline": "Tap Into Your Superbrain: Activate Your Wealth Manifestation with The Genius Song",
+    "who_it_is_for": "Aspiring entrepreneurs, spiritual seekers, and anyone feeling stuck in a cycle of financial lack.",
+    "why_it_works": "Synchronizes brain waves to the \"Theta\" state associated with deep creativity and abundance, backed by clinical research.",
+    "seo_keywords": ["wealth manifestation frequency", "activate genius brain", "theta wave meditation", "financial success secret", "law of attraction music"]
   },
   {
-    "title": "Neuro Serge",
-    "funnel_angle": "VSL (Nootropic supplement)",
-    "avg_per_conversion": "$135.20",
-    "gravity_score": 51.2,
-    "affiliate_tools_url": "https://neuroserge.com/affiliates/"
+    "title": "Joint Genesis",
+    "funnel_angle": "Optimized joint health funnel focusing on Synovial Fluid",
+    "avg_per_conversion": 151.35,
+    "gravity_score": 87.7,
+    "affiliate_tools_url": "https://completejointcare.net/affiliates",
+    "seo_headline": "Move Without Pain: Restore Youthful Mobility with the Joint Genesis Breakthrough",
+    "who_it_is_for": "Active adults and seniors suffering from stiff joints, knee pain, or age-related mobility issues.",
+    "why_it_works": "Targets the \"Synovial Fluid\" in your joints, replenishing the cushioning that protects your bones from friction.",
+    "seo_keywords": ["joint pain relief", "natural arthritis remedy", "improve mobility fast", "synovial fluid supplement", "flexible joints formula"]
   },
   {
-    "title": "Dubai Wealth Secret",
-    "funnel_angle": "VSL (Wealth manifestation / MMO)",
-    "avg_per_conversion": "$22.15",
-    "gravity_score": 67.3,
-    "affiliate_tools_url": "https://dubaiwealthsecret.com/affiliates/"
+    "title": "The Memory Wave",
+    "funnel_angle": "Memory-focused VSL from the creators of The Genius Wave",
+    "avg_per_conversion": 54.15,
+    "gravity_score": 70.3,
+    "affiliate_tools_url": "https://memorywaveoriginal.com/Affiliates/",
+    "seo_headline": "Never Forget a Face Again: The Memory Wave Strategy for Cognitive Clarity",
+    "who_it_is_for": "People noticing early signs of forgetfulness, busy parents, and anyone wanting to protect their long-term brain health.",
+    "why_it_works": "Leverages sound-wave technology to flush out metabolic waste from the brain and enhance recall speed.",
+    "seo_keywords": ["improve memory speed", "cognitive health for seniors", "mental clarity sounds", "prevent memory loss", "brain power booster"]
   },
   {
-    "title": "Year of the Horse 2026 - Astrology Language",
-    "funnel_angle": "VSL (Seasonal astrology reading)",
-    "avg_per_conversion": "$19.80",
-    "gravity_score": 59.2,
-    "affiliate_tools_url": "https://yourastrologylanguage.com/affiliates/"
+    "title": "The Wealth Signal",
+    "funnel_angle": "Brand-new high-converting manifestation VSL monster",
+    "avg_per_conversion": 47.05,
+    "gravity_score": 61.1,
+    "affiliate_tools_url": "https://wealthsignaloriginal.com/Affiliates/",
+    "seo_headline": "Broadcast Your Success: The Wealth Signal That Attracts Prosperity Effortlessly",
+    "who_it_is_for": "Individuals tired of hard work with no results, manifestation enthusiasts, and those looking for a mental shortcut to success.",
+    "why_it_works": "Activates a dormant part of the brain that signals the universe for abundance, based on ancient principles and modern physics.",
+    "seo_keywords": ["attract money fast", "manifestation signal", "wealth attraction guide", "abundance mindset", "prosperous life secret"]
   },
   {
-    "title": "Derila Ergo Memory Foam Pillow",
-    "funnel_angle": "E-commerce Product Page / Advertorial",
-    "avg_per_conversion": "$65.40",
-    "gravity_score": 56.3,
-    "affiliate_tools_url": "https://derila.com/affiliates/"
+    "title": "The Billionaire Brain Wave",
+    "funnel_angle": "8-figure marketer VSL for wealth manifestation",
+    "avg_per_conversion": 44.11,
+    "gravity_score": 53.6,
+    "affiliate_tools_url": "https://thebillionairebrainwave.com/Affiliates/",
+    "seo_headline": "Think Like a Billionaire: The 7-Minute Brain Wave Routine for Financial Freedom",
+    "who_it_is_for": "Middle-class workers wanting to break the glass ceiling and reach their full financial potential.",
+    "why_it_works": "A simple audio routine that enlarges the hippocampus, the brain's center for complex decision-making and wealth creation.",
+    "seo_keywords": ["billionaire mindset audio", "financial freedom frequency", "brain wave wealth", "hippocampus enlargement", "manifest riches"]
   }
 ]
