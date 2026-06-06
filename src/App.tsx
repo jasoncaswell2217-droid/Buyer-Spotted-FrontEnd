@@ -26,7 +26,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { ShopifyProduct, ShopifyVariant, CartItem, ChatMessage } from "./types";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, signInWithGoogle, logOutUser, syncUserProfile, UserRole, UserProfile, handleFirestoreError, OperationType } from "./firebase";
 
 const mapFirestoreProductToShopify = (id: string, docData: any): ShopifyProduct => {
@@ -177,7 +177,9 @@ export default function App() {
 
   // Administration View and ClickBank Form State
   const [isAdminViewActive, setIsAdminViewActive] = useState(false);
-  const [adminTab, setAdminTab] = useState<"vault" | "warehouse">("vault");
+  const [adminTab, setAdminTab] = useState<"vault" | "warehouse" | "settings">("vault");
+  const [siteSettings, setSiteSettings] = useState<{ isOpen: boolean }>({ isOpen: false });
+  const [isSettingsSaving, setIsSettingsSaving] = useState(false);
   const [scannedProducts, setScannedProducts] = useState<any[]>([]);
   const [isFetchingCB, setIsFetchingCB] = useState(false);
   const [fetchErrorCB, setFetchErrorCB] = useState("");
@@ -249,6 +251,22 @@ export default function App() {
       setIsLoading(false);
     });
 
+    // Subscribe to site settings real-time snapshot
+    const unsubscribeSettings = onSnapshot(doc(db, "settings", "site"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setSiteSettings({
+          isOpen: data.isOpen === true
+        });
+      } else {
+        // Default to Closed if document does not exist yet (to keep under construction page intact)
+        setSiteSettings({ isOpen: false });
+      }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, "settings/site");
+      setSiteSettings({ isOpen: false });
+    });
+
     // Retrieve stored cart if it exists
     try {
       const savedCart = localStorage.getItem("buyerspotted_cart");
@@ -260,10 +278,18 @@ export default function App() {
     }
 
     // Subscribe to Authentication session state changes
+    let activeProfileUnsubscribe: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+      // Clean up previous active profile listener if one exists
+      if (activeProfileUnsubscribe) {
+        activeProfileUnsubscribe();
+        activeProfileUnsubscribe = null;
+      }
+
       setCurrentUser(u);
       if (u) {
-        const unsubProfile = syncUserProfile(u.uid, (profile) => {
+        activeProfileUnsubscribe = syncUserProfile(u.uid, (profile) => {
           if (profile) {
             setUserProfile(profile);
           } else {
@@ -278,7 +304,6 @@ export default function App() {
           }
           setIsAuthChecking(false);
         });
-        return () => unsubProfile();
       } else {
         setUserProfile(null);
         setIsAdminViewActive(false);
@@ -288,7 +313,11 @@ export default function App() {
 
     return () => {
       unsubscribeProducts();
+      unsubscribeSettings();
       unsubscribeAuth();
+      if (activeProfileUnsubscribe) {
+        activeProfileUnsubscribe();
+      }
     };
   }, []);
 
@@ -996,7 +1025,7 @@ export default function App() {
           </motion.div>
         )}
 
-        {!isAuthChecking && !pathProductId && userProfile?.role !== UserRole.ADMIN && (
+        {!isAuthChecking && !siteSettings.isOpen && userProfile?.role !== UserRole.ADMIN && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1246,6 +1275,16 @@ export default function App() {
                     >
                       <Sparkles className="w-3 h-3 text-current animate-pulse" /> Digital Warehouse
                     </button>
+                    <button
+                      onClick={() => setAdminTab("settings")}
+                      className={`px-3 py-1.5 font-mono text-[9px] tracking-widest uppercase rounded-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                        adminTab === "settings"
+                          ? "bg-neo-gold text-black font-semibold"
+                          : "text-neutral-550 hover:text-neutral-300"
+                      }`}
+                    >
+                      <Sliders className="w-3 h-3 text-current" /> Site Settings
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1397,6 +1436,98 @@ export default function App() {
                     </table>
                   </div>
                 )}
+              </div>
+            ) : adminTab === "settings" ? (
+              <div className="bg-neutral-950 border border-neutral-900 p-6 rounded-lg max-w-2xl mx-auto relative animate-in fade-in duration-300">
+                {/* Accent Nodes */}
+                <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#c3a05c]"></div>
+                <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-[#c3a05c]"></div>
+                <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-[#c3a05c]"></div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-[#c3a05c]"></div>
+
+                <div className="border-b border-neutral-900 pb-5 mb-6">
+                  <h4 className="font-mono text-xs text-neo-gold uppercase tracking-widest font-bold flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-neo-gold" /> Critical Site Controls
+                  </h4>
+                  <p className="font-mono text-[10px] text-neutral-550 uppercase mt-1">
+                    Manage real-time catalog visibility and public access parameters
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Status Showcase Card */}
+                  <div className="p-6 bg-[#070707] border border-neutral-900 rounded-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="space-y-1.5 max-w-sm">
+                      <span className="font-mono text-[9px] text-[#c3a05c] tracking-widest uppercase block font-semibold">
+                        Current Status
+                      </span>
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-2.5 h-2.5 rounded-full ${siteSettings.isOpen ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}`} />
+                        <h5 className="font-display font-bold text-xl tracking-wider text-neutral-100 uppercase">
+                          {siteSettings.isOpen ? "WEBSITE IS OPEN" : "WEBSITE IS CLOSED"}
+                        </h5>
+                      </div>
+                      <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
+                        {siteSettings.isOpen 
+                          ? "The marketplace catalog, product pre-sells, and secure chat are fully visible to all casual site visitors."
+                          : "Any public visitors will be blocked by the Under Construction overlay. Only authenticated Administrators can bypass the overlay and log in."
+                        }
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-2.5 w-full md:w-auto shrink-0 md:pt-0 pt-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            setIsSettingsSaving(true);
+                            await setDoc(doc(db, "settings", "site"), { isOpen: !siteSettings.isOpen });
+                          } catch (err) {
+                            handleFirestoreError(err, OperationType.WRITE, "settings/site");
+                          } finally {
+                            setIsSettingsSaving(false);
+                          }
+                        }}
+                        disabled={isSettingsSaving}
+                        className={`px-5 py-3 rounded-sm font-mono text-[10px] font-bold tracking-widest uppercase transition-all duration-300 w-full md:w-48 flex items-center justify-center gap-2 cursor-pointer ${
+                          siteSettings.isOpen 
+                            ? "border border-amber-800 bg-amber-950/20 text-amber-400 hover:bg-amber-900/15" 
+                            : "bg-neo-gold text-black hover:bg-yellow-600 shadow-[0_0_15px_rgba(195,160,92,0.2)]"
+                        }`}
+                      >
+                        {isSettingsSaving ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-black shrink-0" /> WRITING ATOMICALLY...
+                          </>
+                        ) : siteSettings.isOpen ? (
+                          <>CLOSE WEBSITE</>
+                        ) : (
+                          <>OPEN WEBSITE</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Security/Operation Guidelines */}
+                  <div className="p-5 bg-neutral-950 border border-neutral-900/60 rounded-md space-y-3.5">
+                    <h5 className="font-mono text-[10px] text-neutral-200 uppercase tracking-wider font-bold flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-neo-gold" /> Operational Protocols
+                    </h5>
+                    <ul className="space-y-2 text-neutral-400 font-mono text-[10px] uppercase tracking-wide leading-relaxed">
+                      <li className="flex items-start gap-2">
+                        <span className="text-neo-gold mt-0.5">•</span>
+                        <span>All settings mutations are recorded atomically in Google Firestore via TLS.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-neo-gold mt-0.5">•</span>
+                        <span>When set to CLOSED, the system instantly engages the secure decryption gate overlay.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-neo-gold mt-0.5">•</span>
+                        <span>Administrators can log in to bypass the gate using verified security credentials (jasoncaswell2217@gmail.com).</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

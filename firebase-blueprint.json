@@ -86,6 +86,18 @@
         }
       },
       "required": ["title", "description", "price", "cbVendor", "cbAffiliate", "gravity", "imageUrl", "affiliateUrl", "createdAt"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global settings for the website.",
+      "type": "object",
+      "properties": {
+        "isOpen": {
+          "type": "boolean",
+          "description": "True if the website is open to regular users, false if under construction."
+        }
+      },
+      "required": ["isOpen"]
     }
   },
   "firestore": {
@@ -96,6 +108,10 @@
     "products/{productId}": {
       "schema": "Product",
       "description": "Curated ClickBank products."
+    },
+    "settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Global config store."
     }
   }
 }

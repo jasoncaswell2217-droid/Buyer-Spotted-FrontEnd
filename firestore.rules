@@ -66,6 +66,13 @@ service cloud.firestore {
         && data.affiliateUrl is string && data.affiliateUrl.size() <= 2048;
     }
 
+    // Helper: validate setting structure
+    function isValidSetting(data) {
+      return data.keys().hasAll(['isOpen'])
+        && data.keys().size() == 1
+        && data.isOpen is bool;
+    }
+
     // Rules for User documents
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -103,6 +110,16 @@ service cloud.firestore {
         && isValidId(productId)
         && (isValidProduct(incoming()) || true);
         
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Settings documents
+    match /settings/{settingId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, update: if isAdmin()
+        && isValidId(settingId)
+        && isValidSetting(incoming());
       allow delete: if isAdmin();
     }
   }
