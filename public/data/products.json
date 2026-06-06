@@ -1,0 +1,128 @@
+[
+  {
+    "title": "Moon Reading",
+    "funnel_angle": "Quiz + VSL",
+    "avg_per_conversion": "$25.42",
+    "gravity_score": 71.9,
+    "affiliate_tools_url": "https://www.moonreading.com/affiliate/",
+    "seo_headline": "Discover Your Personalized Moon Reading — Unlock Your Astrological Destiny Tonight",
+    "who_it_is_for": "Spiritual seekers, astrology enthusiasts, and anyone curious about their unique cosmic blueprint.",
+    "why_it_works": "Delivers a hyper-personalized video reading based on your exact birth data, creating instant emotional resonance and trust.",
+    "seo_keywords": ["moon reading", "personalized astrology", "natal chart reading", "spiritual guidance", "horoscope解读"],
+    "is_subscription": false,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Personalized Moon Reading Video tailored to your birth chart",
+      "Comprehensive Natal Chart Analysis with planetary positions",
+      "Daily Astrology Guidance Email for 30 days"
+    ]
+  },
+  {
+    "title": "The Brain Song",
+    "funnel_angle": "VSL (Neuroscientist-endorsed audio)",
+    "avg_per_conversion": "$52.67",
+    "gravity_score": 172.1,
+    "affiliate_tools_url": "https://forbrainsong.com/Affiliates/",
+    "seo_headline": "Unlock Your Genius: The Brain Song That Restores Memory and Sharpens Focus Fast",
+    "who_it_is_for": "Seniors experiencing memory decline, professionals with brain fog, and students seeking mental clarity.",
+    "why_it_works": "Uses specific binaural frequencies endorsed by neuroscientists to stimulate neural pathways and repair cognitive function.",
+    "seo_keywords": ["memory restoration", "brain health supplement", "binaural beats focus", "neuroscientist memory secret", "cognitive enhancement"],
+    "is_subscription": false,
+    "refund_window": "60-Day",
+    "included_features": [
+      "The Brain Song Audio Track (binaural frequency session)",
+      "Quick Start Guide to Optimal Brain Health",
+      "Bonus: Memory Retention Toolkit PDF"
+    ]
+  },
+  {
+    "title": "YU SLEEP",
+    "funnel_angle": "VSL (Health Supplement)",
+    "avg_per_conversion": "$115.00",
+    "gravity_score": 115.7,
+    "affiliate_tools_url": "https://yusleep.com/affiliates/",
+    "seo_headline": "Sleep Like a Baby Tonight — The Science-Backed YU SLEEP Method for Deep, Restorative Rest",
+    "who_it_is_for": "Insomniacs, light sleepers, and high-stress professionals who wake up exhausted every morning.",
+    "why_it_works": "A natural, non-habit-forming formula that triggers REM cycles and resets your circadian rhythm for deep sleep.",
+    "seo_keywords": ["natural sleep aid", "deep sleep formula", "cure insomnia naturally", "better sleep quality", "sleep supplement"],
+    "is_subscription": true,
+    "refund_window": "60-Day",
+    "included_features": [
+      "30-Night Supply of YU SLEEP capsules (premium blend)",
+      "Deep Sleep Ritual Audio (guided relaxation session)",
+      "Natural Sleep Hygiene Checklist (actionable nightly routine)"
+    ]
+  },
+  {
+    "title": "Joint Genesis",
+    "funnel_angle": "VSL (Health Supplement)",
+    "avg_per_conversion": "$135.00",
+    "gravity_score": 87.7,
+    "affiliate_tools_url": "https://jointgenesis.com/affiliates/",
+    "seo_headline": "Move Without Pain — Joint Genesis Replenishes Synovial Fluid for Youthful Mobility",
+    "who_it_is_for": "Active adults, seniors, and athletes suffering from stiff joints, knee pain, or age-related mobility issues.",
+    "why_it_works": "Targets the synovial fluid in your joints — replenishing the natural cushioning that protects bones from friction and wear.",
+    "seo_keywords": ["joint pain relief", "natural arthritis remedy", "mobility support supplement", "synovial fluid health", "flexible joints"],
+    "is_subscription": true,
+    "refund_window": "180-Day",
+    "included_features": [
+      "30-Day Supply of Joint Genesis Bio-Dynamic Capsules",
+      "Joint Mobility Video Series (step-by-step exercises)",
+      "Anti-Inflammatory Nutrition Guide and Meal Plan"
+    ]
+  },
+  {
+    "title": "Billionaire Brain Wave",
+    "funnel_angle": "VSL (Manifestation Audio)",
+    "avg_per_conversion": "$38.90",
+    "gravity_score": 53.6,
+    "affiliate_tools_url": "https://billionairebrainwave.com/affiliates/",
+    "seo_headline": "Think Like a Billionaire — 7-Minute Brain Wave Routine for Financial Freedom and Abundance",
+    "who_it_is_for": "Middle-class professionals wanting to break financial barriers and unlock their wealth potential.",
+    "why_it_works": "A simple theta-wave audio routine that enlarges the hippocampus — the brain's center for complex decisions and wealth creation.",
+    "seo_keywords": ["billionaire mindset audio", "brain wave wealth", "theta wave meditation", "financial freedom frequency", "manifest riches"],
+    "is_subscription": false,
+    "refund_window": "90-Day",
+    "included_features": [
+      "Theta-Frequency Billionaire Brain Wave Audio Track",
+      "Quick Start Wealth Guide (digital PDF)",
+      "Digital Prosperity Bonus Package (abundance mindset toolkit)"
+    ]
+  },
+  {
+    "title": "The Wealth Signal",
+    "funnel_angle": "VSL (Manifestation)",
+    "avg_per_conversion": "$47.05",
+    "gravity_score": 61.1,
+    "affiliate_tools_url": "https://wealthsignaloriginal.com/Affiliates/",
+    "seo_headline": "Broadcast Your Success — The Wealth Signal That Attracts Prosperity Effortlessly",
+    "who_it_is_for": "Individuals stuck in cycles of financial struggle, manifestation enthusiasts, and abundance mindset seekers.",
+    "why_it_works": "Activates a dormant brain center that signals the universe for abundance, blending ancient principles with modern neuroscience.",
+    "seo_keywords": ["attract money fast", "wealth signal", "manifestation frequency", "abundance mindset", "prosperity secret"],
+    "is_subscription": false,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Wealth Signal Elite Audio Frequency Track",
+      "Step-by-Step Dubai Wealth Protocol Guide",
+      "Luxury Lifestyle Blueprint (digital resource)"
+    ]
+  },
+  {
+    "title": "The Genius Song",
+    "funnel_angle": "VSL (Brain Wave Synchronization)",
+    "avg_per_conversion": "$52.95",
+    "gravity_score": 112.2,
+    "affiliate_tools_url": "https://gogeniuswave.com/Affiliates/",
+    "seo_headline": "Tap Into Your Superbrain — Activate Theta Waves and Unlock Genius-Level Clarity",
+    "who_it_is_for": "Aspiring entrepreneurs, creative professionals, spiritual seekers, and anyone facing mentalblocks.",
+    "why_it_works": "Synchronizes brain waves to the theta state associated with deep creativity, abundance thinking, and peak cognitive performance.",
+    "seo_keywords": ["theta wave meditation", "genius brain activation", "wealth manifestation music", "creative focus frequency", "cognitive enhancement audio"],
+    "is_subscription": false,
+    "refund_window": "60-Day",
+    "included_features": [
+      "The Genius Song Theta-Wave Audio Track",
+      "Personalized Activation Guide (digital PDF)",
+      "Bonus: Abundance Mindset Audio Session"
+    ]
+  }
+]
