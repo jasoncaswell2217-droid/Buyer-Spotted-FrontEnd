@@ -2031,7 +2031,7 @@ export default function App() {
                                src={primaryImage} 
                                alt={p.title}
                                referrerPolicy="no-referrer"
-                               className="w-full h-full object-cover brightness-95 contrast-105"
+                               className="w-full h-full object-contain brightness-95 contrast-105"
                             />
                           </div>
 
@@ -2373,7 +2373,7 @@ export default function App() {
                         src={selectedProduct.images[activeImageIdx]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600"} 
                         alt={selectedProduct.images[activeImageIdx]?.altText || selectedProduct.title}
                         referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover brightness-95"
+                        className="w-full h-full object-contain brightness-95"
                       />
                     </div>
 
