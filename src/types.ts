@@ -37,6 +37,13 @@ export interface ShopifyProduct {
   gravity?: number;
   clickbankUrl?: string;
   conversionLabel?: string;
+  seoHeadline?: string;
+  whoItIsFor?: string;
+  whyItWorks?: string;
+  seoKeywords?: string;
+  is_subscription?: boolean;
+  refund_window?: string;
+  included_features?: string[];
 }
 
 export interface CartItem {

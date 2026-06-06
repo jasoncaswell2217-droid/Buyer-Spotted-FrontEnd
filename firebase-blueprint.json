@@ -63,6 +63,22 @@
           "type": "string",
           "description": "The custom/generated ClickBank Hoplink redirect URL."
         },
+        "seoHeadline": {
+          "type": "string",
+          "description": "SEO Headline for dynamic pre-sell landing page."
+        },
+        "whoItIsFor": {
+          "type": "string",
+          "description": "Target demographics or audience details."
+        },
+        "whyItWorks": {
+          "type": "string",
+          "description": "Why the conversion mechanism works."
+        },
+        "seoKeywords": {
+          "type": "string",
+          "description": "Comma-separated keywords for SEO context."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",

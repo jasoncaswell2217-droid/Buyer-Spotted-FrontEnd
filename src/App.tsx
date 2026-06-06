@@ -6,6 +6,7 @@ import {
   Plus, 
   Minus, 
   Trash2, 
+  Edit, 
   Sparkles, 
   Cpu, 
   Layers, 
@@ -18,12 +19,14 @@ import {
   Info,
   Lock,
   ShieldAlert,
-  LogOut
+  LogOut,
+  ShieldCheck,
+  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ShopifyProduct, ShopifyVariant, CartItem, ChatMessage } from "./types";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, signInWithGoogle, logOutUser, syncUserProfile, UserRole, UserProfile, handleFirestoreError, OperationType } from "./firebase";
 
 const mapFirestoreProductToShopify = (id: string, docData: any): ShopifyProduct => {
@@ -70,8 +73,57 @@ const mapFirestoreProductToShopify = (id: string, docData: any): ShopifyProduct 
     cbVendor,
     cbAffiliate,
     gravity: gravityValue,
-    conversionLabel: docData.conversionLabel || `$${priceStr} expected payout`
+    conversionLabel: docData.conversionLabel || `$${priceStr} expected payout`,
+    seoHeadline: docData.seoHeadline || "",
+    whoItIsFor: docData.whoItIsFor || "",
+    whyItWorks: docData.whyItWorks || "",
+    seoKeywords: docData.seoKeywords || "",
+    is_subscription: docData.is_subscription === true,
+    refund_window: docData.refund_window || "60-Day",
+    included_features: Array.isArray(docData.included_features) ? docData.included_features : []
   };
+};
+
+const getProductPlaceholderImage = (title: string): string => {
+  const t = (title || "").toLowerCase();
+  if (t.includes("astrology") || t.includes("moon")) {
+    return "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=600";
+  }
+  if (t.includes("brain") || t.includes("billionaire") || t.includes("wealth") || t.includes("dubai")) {
+    return "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600";
+  }
+  if (t.includes("flora") || t.includes("health") || t.includes("vision")) {
+    return "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600";
+  }
+  if (t.includes("neuro") || t.includes("nootropic") || t.includes("serge")) {
+    return "https://images.unsplash.com/photo-1532187863486-abf9d39d66e8?w=600";
+  }
+  if (t.includes("pillow") || t.includes("derila") || t.includes("foam")) {
+    return "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=600";
+  }
+  return "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600";
+};
+
+const getClickBankHoplinkUrl = (p: any): string => {
+  let inferredVendor = "vendor";
+  if (p.affiliate_tools_url) {
+    try {
+      const urlObj = new URL(p.affiliate_tools_url);
+      const hostParts = urlObj.hostname.toLowerCase().split(".");
+      if (hostParts.length >= 2) {
+        inferredVendor = hostParts[hostParts.length - 2];
+        if (inferredVendor === "www" && hostParts.length >= 3) {
+          inferredVendor = hostParts[hostParts.length - 3];
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  if (inferredVendor === "vendor" || inferredVendor === "com" || inferredVendor === "net" || !inferredVendor) {
+    inferredVendor = (p.title || "offer").replace(/[^a-zA-Z0-9]/g, "").toLowerCase().slice(0, 8);
+  }
+  return `https://wolfjay26.${inferredVendor}.hop.clickbank.net`;
 };
 
 export default function App() {
@@ -80,6 +132,36 @@ export default function App() {
   const [filteredCategory, setFilteredCategory] = useState<string>("All");
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Custom SPA Router state for dynamic /product/:id routing
+  const [pathProductId, setPathProductId] = useState<string | null>(() => {
+    const match = window.location.pathname.match(/^\/product\/([^/]+)/);
+    return match ? match[1] : null;
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const match = window.location.pathname.match(/^\/product\/([^/]+)/);
+      setPathProductId(match ? match[1] : null);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigateToProduct = (id: string) => {
+    window.history.pushState({}, "", `/product/${id}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const navigateToHome = () => {
+    window.history.pushState({}, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  // FAQ state variables
+  const [faqOpen1, setFaqOpen1] = useState(false);
+  const [faqOpen2, setFaqOpen2] = useState(false);
+
   
   // Dialog & interface drawers toggles
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -96,7 +178,7 @@ export default function App() {
   // Administration View and ClickBank Form State
   const [isAdminViewActive, setIsAdminViewActive] = useState(false);
   const [adminTab, setAdminTab] = useState<"vault" | "warehouse">("vault");
-  const [fetchedProducts, setFetchedProducts] = useState<any[]>([]);
+  const [scannedProducts, setScannedProducts] = useState<any[]>([]);
   const [isFetchingCB, setIsFetchingCB] = useState(false);
   const [fetchErrorCB, setFetchErrorCB] = useState("");
 
@@ -109,9 +191,17 @@ export default function App() {
   const [formConversionLabel, setFormConversionLabel] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
   const [formAffiliateUrl, setFormAffiliateUrl] = useState("");
+  const [formSeoHeadline, setFormSeoHeadline] = useState("");
+  const [formWhoItIsFor, setFormWhoItIsFor] = useState("");
+  const [formWhyItWorks, setFormWhyItWorks] = useState("");
+  const [formSeoKeywords, setFormSeoKeywords] = useState("");
+  const [formIsSubscription, setFormIsSubscription] = useState(false);
+  const [formRefundWindow, setFormRefundWindow] = useState("60-Day");
+  const [formIncludedFeatures, setFormIncludedFeatures] = useState("");
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // Deletion tracking state
   const [activeDeleteId, setActiveDeleteId] = useState<string | null>(null);
@@ -215,31 +305,26 @@ export default function App() {
   // Fetch products from ClickBank research agent
   const handleFetchClickBankProducts = async () => {
     // Force clear the table before displaying new results to prevent appending/stacking data
-    setFetchedProducts([]);
+    setScannedProducts([]);
     setFetchErrorCB("");
     setIsFetchingCB(true);
 
     try {
-      const response = await fetch("/api/gemini-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "fetch-clickbank-products" })
-      });
+      const response = await fetch("https://raw.githubusercontent.com/jasoncaswell2217-droid/Buyer-Spotted-FrontEnd/main/public/data/products.json");
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Signal interrupted during clickbank discovery");
+        throw new Error("Signal interrupted during ClickBank registry retrieval: status " + response.status);
       }
 
-      const data = await response.json();
-      if (data.products && Array.isArray(data.products)) {
-        setFetchedProducts(data.products);
+      const list = await response.json();
+      if (Array.isArray(list)) {
+        setScannedProducts(list);
       } else {
-        throw new Error("Invalid response format received from research intelligence");
+        throw new Error("Invalid response format received from GitHub repository list");
       }
     } catch (err: any) {
       console.error("[Digital Warehouse] Fetch error:", err);
-      setFetchErrorCB(err.message || "Temporary error polling ClickBank market research node.");
+      setFetchErrorCB(err.message || "Temporary error pulling ClickBank live manifest.");
     } finally {
       setIsFetchingCB(false);
     }
@@ -247,17 +332,106 @@ export default function App() {
 
   // Import fetched product into active entry form
   const handleImportProduct = (p: any) => {
+    const rawPrice = p.avg_per_conversion ? String(p.avg_per_conversion).replace(/[^0-9.]/g, "") : "";
+    const generatedHoplink = getClickBankHoplinkUrl(p);
+
     setFormTitle(p.title || "");
-    setFormDescription(p.description || "Expert ClickBank campaign leveraging a high-converting direct response marketing strategy.");
-    setFormPrice(p.expected_payout ? String(p.expected_payout) : "");
+    setFormDescription(`Expert ClickBank campaign leveraging a high-converting ${p.funnel_angle || "direct response"} marketing strategy.`);
+    setFormPrice(rawPrice);
     setFormGravity(p.gravity_score ? String(p.gravity_score) : "");
-    setFormConversionLabel(p.conversion_label || `$${parseFloat(p.expected_payout || 0).toFixed(2)} Average $/Conversion`);
-    setFormImageUrl(p.image_url || p.imageUrl || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600");
-    setFormAffiliateUrl(p.clickbank_hoplink_url || p.toolsUrl || "");
+    setFormConversionLabel(p.avg_per_conversion ? `${p.avg_per_conversion} Average $/Conversion` : "$0.00 Average $/Conversion");
+    setFormImageUrl(getProductPlaceholderImage(p.title));
+    setFormAffiliateUrl(generatedHoplink);
+    setFormSeoHeadline(p.seo_headline || `Promote ${p.title || "Offer"} - High Converting ${p.funnel_angle || "Direct Response"} Campaign`);
+    setFormWhoItIsFor(p.who_it_is_for || `Perfect for demographic audiences interested in ${p.title || "niche"} wellness and lifestyle optimization solutions.`);
+    setFormWhyItWorks(p.why_it_works || "Leverages an engaging high-performance funnel with highly optimized payout EPC metrics, custom affiliate tools, and trusted sales copy.");
+    
+    // Parse seo_keywords dynamically if it's an array to format as clear, comma-separated string
+    const formattedKeywords = p.seo_keywords && Array.isArray(p.seo_keywords)
+      ? p.seo_keywords.join(', ')
+      : (p.seo_keywords || `${(p.title || "").toLowerCase().replace(/[^a-z0-9]+/g, ", ")}, clickbank offer, promotion, conversion`);
+    setFormSeoKeywords(formattedKeywords);
     
     setFormSuccess(`Imported ClickBank offer: "${p.title}" details successfully mapped to fields below.`);
     setFormError("");
     setAdminTab("vault"); // Return to vault tab so they can review and click Deploy
+  };
+
+  // Populate form with product data for editing
+  const handleEditProduct = (p: ShopifyProduct) => {
+    setEditingProductId(p.id);
+    setFormTitle(p.title);
+    setFormDescription(p.description);
+    setFormPrice(p.priceMin.amount);
+    setFormGravity(p.gravity ? String(p.gravity) : "");
+    setFormConversionLabel(p.conversionLabel || "");
+    setFormImageUrl(p.images[0]?.url || "");
+    setFormAffiliateUrl(p.clickbankUrl || "");
+    setFormSeoHeadline(p.seoHeadline || "");
+    setFormWhoItIsFor(p.whoItIsFor || "");
+    setFormWhyItWorks(p.whyItWorks || "");
+    setFormSeoKeywords(p.seoKeywords || "");
+    setFormIsSubscription(p.is_subscription === true);
+    setFormRefundWindow(p.refund_window || "60-Day");
+    setFormIncludedFeatures(p.included_features ? p.included_features.join("\n") : "");
+    setFormError("");
+    setFormSuccess("");
+
+    // Scroll form into view
+    const formElement = document.getElementById("admin-compilation-form");
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  // Generate highly premium brand-aligned placeholder images via unsplash key-matching
+  const generateThemedImagePlaceholder = () => {
+    const rawKeywords = formSeoKeywords.trim();
+    const rawTitle = formTitle.trim();
+    
+    // Parse terms
+    const queryTerms: string[] = [];
+    
+    if (rawTitle) {
+      // split title by space and take cleaned key nouns/adjectives
+      rawTitle.split(/\s+/).forEach(word => {
+        const cleaned = word.replace(/[^a-zA-Z]/g, "").toLowerCase();
+        if (cleaned.length > 3 && !["with", "this", "from", "your", "that", "there", "their", "them", "then", "into", "onto", "over", "each", "both", "some", "most", "such", "than"].includes(cleaned)) {
+          queryTerms.push(cleaned);
+        }
+      });
+    }
+
+    if (rawKeywords) {
+      rawKeywords.split(",").forEach(kw => {
+        const cleaned = kw.trim().toLowerCase();
+        if (cleaned) {
+          queryTerms.push(cleaned);
+        }
+      });
+    }
+
+    // Embed rich brand identity aesthetics for Neo-Noir & Clinical Cyber-Wellness dark gradient theme
+    const aestheticCore = [
+      "clinical",
+      "cyber-wellness",
+      "abstract-tech",
+      "minimalistic-luxury",
+      "neo-noir-aesthetic",
+      "dark-gradient",
+      "dark-mode-high-contrast"
+    ];
+
+    // Combine user inputs with branding to form premium Unsplash query tags (limiting keywords for crisp relevance)
+    const allTags = Array.from(new Set([...queryTerms, ...aestheticCore])).slice(0, 8);
+    const queryParameter = encodeURIComponent(allTags.join(","));
+    
+    // Generate a secure, unique, and high-quality placeholder signature to force reload/refresh
+    const seed = Math.floor(Math.random() * 99999);
+    const resolvedUrl = `https://images.unsplash.com/featured/800x600/?${queryParameter}&sig=${seed}`;
+    
+    setFormImageUrl(resolvedUrl);
+    setFormSuccess("✨ Generated highly relevant, premium neo-noir themed image placeholder!");
   };
 
   // Option to reset/clear form fields safely
@@ -269,8 +443,16 @@ export default function App() {
     setFormConversionLabel("");
     setFormImageUrl("");
     setFormAffiliateUrl("");
+    setFormSeoHeadline("");
+    setFormWhoItIsFor("");
+    setFormWhyItWorks("");
+    setFormSeoKeywords("");
+    setFormIsSubscription(false);
+    setFormRefundWindow("60-Day");
+    setFormIncludedFeatures("");
     setFormError("");
     setFormSuccess("");
+    setEditingProductId(null);
   };
 
   // Submit product creation form
@@ -318,21 +500,56 @@ export default function App() {
     // Construct Hoplink with forced Affiliate ID wolfjay26
     const finalHoplink = `https://${forcedAffiliate}.${cbVendorValue}.hop.clickbank.net`;
 
-    try {
-      await addDoc(collection(db, "products"), {
-        title: formTitle.trim(),
-        description: formDescription.trim(),
-        price: parseFloat(formPrice),
-        cbVendor: cbVendorValue,
-        cbAffiliate: forcedAffiliate,
-        gravity: parseFloat(formGravity) || 0,
-        conversionLabel: formConversionLabel.trim() || `$${parseFloat(formPrice).toFixed(2)} expected payout`,
-        imageUrl: formImageUrl.trim(),
-        affiliateUrl: finalHoplink,
-        createdAt: serverTimestamp()
-      });
+    const parsedIncludedFeatures = formIncludedFeatures
+      .split("\n")
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
 
-      setFormSuccess("ClickBank affiliate piece successfully added to high-performance pipeline!");
+    try {
+      if (editingProductId) {
+        await updateDoc(doc(db, "products", editingProductId), {
+          title: formTitle.trim(),
+          description: formDescription.trim(),
+          price: parseFloat(formPrice),
+          cbVendor: cbVendorValue,
+          cbAffiliate: forcedAffiliate,
+          gravity: parseFloat(formGravity) || 0,
+          conversionLabel: formConversionLabel.trim() || `$${parseFloat(formPrice).toFixed(2)} expected payout`,
+          imageUrl: formImageUrl.trim(),
+          affiliateUrl: rawAffiliateUrl,
+          seoHeadline: formSeoHeadline.trim(),
+          whoItIsFor: formWhoItIsFor.trim(),
+          whyItWorks: formWhyItWorks.trim(),
+          seoKeywords: formSeoKeywords.trim(),
+          is_subscription: formIsSubscription,
+          refund_window: formRefundWindow.trim() || "60-Day",
+          included_features: parsedIncludedFeatures
+        });
+        setFormSuccess("ClickBank affiliate piece successfully updated!");
+        setEditingProductId(null);
+      } else {
+        await addDoc(collection(db, "products"), {
+          title: formTitle.trim(),
+          description: formDescription.trim(),
+          price: parseFloat(formPrice),
+          cbVendor: cbVendorValue,
+          cbAffiliate: forcedAffiliate,
+          gravity: parseFloat(formGravity) || 0,
+          conversionLabel: formConversionLabel.trim() || `$${parseFloat(formPrice).toFixed(2)} expected payout`,
+          imageUrl: formImageUrl.trim(),
+          affiliateUrl: rawAffiliateUrl,
+          seoHeadline: formSeoHeadline.trim(),
+          whoItIsFor: formWhoItIsFor.trim(),
+          whyItWorks: formWhyItWorks.trim(),
+          seoKeywords: formSeoKeywords.trim(),
+          is_subscription: formIsSubscription,
+          refund_window: formRefundWindow.trim() || "60-Day",
+          included_features: parsedIncludedFeatures,
+          createdAt: serverTimestamp()
+        });
+        setFormSuccess("ClickBank affiliate piece successfully added to high-performance pipeline!");
+      }
+
       setFormTitle("");
       setFormDescription("");
       setFormPrice("");
@@ -341,10 +558,17 @@ export default function App() {
       setFormConversionLabel("");
       setFormImageUrl("");
       setFormAffiliateUrl("");
+      setFormSeoHeadline("");
+      setFormWhoItIsFor("");
+      setFormWhyItWorks("");
+      setFormSeoKeywords("");
+      setFormIsSubscription(false);
+      setFormRefundWindow("60-Day");
+      setFormIncludedFeatures("");
     } catch (err: any) {
       console.error("Save catalog element exception:", err);
       try {
-        handleFirestoreError(err, OperationType.CREATE, "products");
+        handleFirestoreError(err, editingProductId ? OperationType.UPDATE : OperationType.CREATE, "products");
       } catch (mappedErr: any) {
         setFormError(`Secure Write Lock: ${mappedErr.message}`);
       }
@@ -505,6 +729,250 @@ export default function App() {
     return acc + (parseFloat(item.variant.price.amount) * item.quantity);
   }, 0);
 
+  if (pathProductId) {
+    const matchedProduct = products.find((p) => p.id === pathProductId);
+
+    return (
+      <div className="min-h-screen bg-[#050505] text-neutral-100 font-sans antialiased selection:bg-neo-gold selection:text-black flex flex-col justify-between relative overflow-x-hidden">
+        {/* Sleek Geometric Frame Details */}
+        <div className="fixed inset-0 pointer-events-none border border-neutral-900 z-50 m-4 opacity-70"></div>
+
+        {/* Brand Header */}
+        <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-neutral-900 px-6 py-4 md:px-12">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {/* Logo */}
+            <div className="flex flex-col cursor-pointer" onClick={navigateToHome}>
+              <h1 className="font-display font-bold text-lg md:text-xl tracking-[0.25em] text-neutral-100 uppercase">
+                BuyerSpotted<span className="text-neo-gold">.</span>
+              </h1>
+              <span className="font-mono text-[9px] tracking-widest text-[#c3a05c] uppercase mt-0.5">
+                Dynamic Research Curation
+              </span>
+            </div>
+
+            <button
+              onClick={navigateToHome}
+              className="flex items-center gap-1.5 px-4 py-2 border border-neutral-800 text-neutral-400 hover:text-neo-gold hover:border-neo-gold bg-neutral-950 font-mono text-[9px] uppercase tracking-wider rounded-sm transition-all cursor-pointer"
+            >
+              ← Back to Catalog
+            </button>
+          </div>
+        </header>
+
+        {isLoading ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
+            <RefreshCw className="w-10 h-10 text-neo-gold animate-spin" />
+            <span className="font-mono text-[10px] tracking-widest text-neutral-400 uppercase animate-pulse">
+              Locating high-performance bridge node...
+            </span>
+          </div>
+        ) : !matchedProduct ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-lg mx-auto py-32">
+            <div className="relative w-16 h-16 flex items-center justify-center mb-6">
+              <span className="absolute w-12 h-12 rounded-full border border-rose-500/30 animate-pulse"></span>
+              <ShieldAlert className="w-8 h-8 text-rose-500 animate-pulse" />
+            </div>
+            <h2 className="font-display font-semibold text-lg text-neutral-100 uppercase tracking-widest mb-2">
+              Unpublished or Deleted Product
+            </h2>
+            <p className="font-mono text-[10px] text-neutral-500 uppercase tracking-wider mb-8 leading-relaxed">
+              This ClickBank offer has not been deployed to the active master database yet, or the configuration is temporarily unavailable.
+            </p>
+            <div className="flex flex-col md:flex-row gap-3">
+              <button
+                onClick={navigateToHome}
+                className="px-6 py-2.5 bg-neo-gold hover:bg-yellow-600 text-black font-semibold font-mono text-[10px] tracking-widest uppercase rounded transition-all cursor-pointer"
+              >
+                Return Home
+              </button>
+              {userProfile?.role === UserRole.ADMIN && (
+                <button
+                  onClick={() => {
+                    setIsAdminViewActive(true);
+                    setAdminTab("warehouse");
+                    navigateToHome();
+                  }}
+                  className="px-6 py-2.5 border border-neutral-800 hover:border-neutral-700 text-neutral-300 font-mono text-[10px] tracking-widest uppercase rounded bg-neutral-950 transition-all cursor-pointer"
+                >
+                  Configure in Warehouse
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <main className="flex-1 max-w-5xl mx-auto px-6 py-12 md:py-20 w-full grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-start">
+            {/* Visual Column */}
+            <div className="md:col-span-5 space-y-6">
+              <div className="relative aspect-[4/5] bg-neutral-950 border border-neutral-900 rounded-lg overflow-hidden group">
+                <img
+                  src={matchedProduct.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600"}
+                  alt={matchedProduct.title}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover brightness-95"
+                />
+              </div>
+            </div>
+
+            {/* Informational Column */}
+            <div className="md:col-span-7 space-y-8">
+              <div className="space-y-3 border-b border-neutral-900 pb-6">
+                <h1 className="font-display font-medium text-2xl md:text-3xl tracking-tight text-neutral-100 leading-tight">
+                  {matchedProduct.title}
+                </h1>
+
+                {/* Main high impact headline if defined */}
+                {matchedProduct.seoHeadline && (
+                  <p className="font-display text-[#c3a05c] font-medium text-base tracking-wide leading-relaxed italic border-l-2 border-[#c3a05c]/30 pl-4 py-1">
+                    "{matchedProduct.seoHeadline}"
+                  </p>
+                )}
+              </div>
+
+              {/* Who It Is For */}
+              {matchedProduct.whoItIsFor && (
+                <div className="p-5 bg-neutral-950 border border-neutral-900 rounded-lg space-y-2">
+                  <h4 className="font-mono text-[#c3a05c] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#c3a05c]"></span> Who This Is For
+                  </h4>
+                  <p className="text-neutral-400 text-xs font-light leading-relaxed">
+                    {matchedProduct.whoItIsFor}
+                  </p>
+                </div>
+              )}
+
+              {/* Why It Works */}
+              {matchedProduct.whyItWorks && (
+                <div className="p-5 bg-neutral-950 border border-neutral-900 rounded-lg space-y-2">
+                  <h4 className="font-mono text-[#c3a05c] text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#c3a05c]"></span> How It Works
+                  </h4>
+                  <p className="text-neutral-400 text-xs font-light leading-relaxed">
+                    {matchedProduct.whyItWorks}
+                  </p>
+                </div>
+              )}
+
+              {/* Tag SEO Keywords */}
+              {matchedProduct.seoKeywords && (
+                <div className="space-y-2">
+                  <span className="font-mono text-[8px] text-neutral-550 uppercase tracking-widest block">
+                    Topics
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {matchedProduct.seoKeywords.split(",").map((kw: string, i: number) => kw.trim() && (
+                      <span key={i} className="px-2.5 py-0.75 bg-neutral-950 border border-neutral-900 rounded font-mono text-[8px] text-neutral-400 uppercase tracking-wide">
+                        {kw.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Product Features Section */}
+              {matchedProduct.included_features && matchedProduct.included_features.length > 0 && (
+                <div className="p-5 bg-neutral-950 border border-neutral-900 rounded-lg space-y-3">
+                  <h4 className="font-mono text-[#c3a05c] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[#c3a05c] rounded-full"></span> Included Features & Components
+                  </h4>
+                  <ul className="space-y-2.5">
+                    {matchedProduct.included_features.map((feature: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2 text-neutral-300 text-xs">
+                        <Check className="w-3.5 h-3.5 text-[#c3a05c] shrink-0 mt-0.5" />
+                        <span className="font-light leading-relaxed">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Satisfaction Guarantee Block */}
+              <div className="p-5 bg-neutral-950 border border-[#c3a05c]/10 rounded-lg flex gap-4 items-start">
+                <ShieldCheck className="w-5 h-5 text-neo-gold shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h5 className="font-mono text-[9px] text-neutral-200 uppercase tracking-wider font-semibold">
+                    Satisfaction Guarantee
+                  </h5>
+                  <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
+                    Guaranteed Risk-Free: Backed by a full {matchedProduct.refund_window || "60-Day"} money-back guarantee from the official provider.
+                  </p>
+                </div>
+              </div>
+
+              {/* User FAQ Accordion */}
+              <div className="space-y-3 pt-4 border-t border-neutral-900">
+                <h4 className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-neutral-600 rounded-full"></span> Consumer FAQ
+                </h4>
+                
+                <div className="space-y-2">
+                  {/* FAQ 1 */}
+                  <div className="border border-neutral-900 rounded bg-[#070707] overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setFaqOpen1(!faqOpen1)}
+                      className="w-full px-4 py-3 flex items-center justify-between text-left font-mono text-[9px] tracking-wider text-neutral-350 hover:text-white uppercase transition-colors"
+                    >
+                      <span>How do I access the program?</span>
+                      <ChevronDown className={`w-3 h-3 text-neutral-500 transition-transform duration-200 ${faqOpen1 ? "rotate-180" : ""}`} />
+                    </button>
+                    {faqOpen1 && (
+                      <div className="px-4 pb-3.5 text-xs text-neutral-400 font-light leading-relaxed border-t border-neutral-950 pt-2.5">
+                        Access is granted immediately. Everything is delivered digitally right after purchase verification.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* FAQ 2 */}
+                  <div className="border border-neutral-900 rounded bg-[#070707] overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setFaqOpen2(!faqOpen2)}
+                      className="w-full px-4 py-3 flex items-center justify-between text-left font-mono text-[9px] tracking-wider text-neutral-350 hover:text-white uppercase transition-colors"
+                    >
+                      <span>What is the billing structure?</span>
+                      <ChevronDown className={`w-3 h-3 text-neutral-500 transition-transform duration-200 ${faqOpen2 ? "rotate-180" : ""}`} />
+                    </button>
+                    {faqOpen2 && (
+                      <div className="px-4 pb-3.5 text-xs text-neutral-400 font-light leading-relaxed border-t border-neutral-950 pt-2.5">
+                        {matchedProduct.is_subscription ? (
+                          "Billing depends on your selected plan. This program includes a flexible subscription structure that can be managed or canceled directly with the official provider."
+                        ) : (
+                          "This is a one-time secure payment from the official provider with no hidden recurring fees."
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Massive landing page call to action */}
+              <div className="pt-4 pb-8 border-t border-neutral-900 space-y-4">
+                <a
+                  href={matchedProduct.clickbankUrl || matchedProduct.amazonUrl || "https://www.clickbank.com"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-4 bg-gradient-to-r from-[#c3a05c] to-yellow-500 hover:brightness-105 active:scale-[0.99] text-black font-bold font-mono text-xs tracking-widest uppercase rounded shadow-lg shadow-yellow-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer text-center"
+                >
+                  <Sparkles className="w-4 h-4 animate-spin shrink-0 text-black" />
+                  <span>Visit Official Website</span>
+                  <ExternalLink className="w-4 h-4 shrink-0 animate-pulse" />
+                </a>
+              </div>
+            </div>
+          </main>
+        )}
+
+        {/* Footer */}
+        <footer className="border-t border-neutral-900 py-6 px-6 md:px-12 bg-neutral-950/40 text-center font-mono text-[9px] text-neutral-550 uppercase tracking-wider mt-auto">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <span>© 2026 BuyerSpotted Digital Curation Network. All rights reserved.</span>
+            <span>Ref: {pathProductId ? pathProductId.slice(0, 8).toUpperCase() : ""}</span>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#050505] text-neutral-100 font-sans antialiased selection:bg-neo-gold selection:text-black">
       
@@ -528,7 +996,7 @@ export default function App() {
           </motion.div>
         )}
 
-        {!isAuthChecking && userProfile?.role !== UserRole.ADMIN && (
+        {!isAuthChecking && !pathProductId && userProfile?.role !== UserRole.ADMIN && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -642,7 +1110,7 @@ export default function App() {
       <div className="relative z-40 bg-gradient-to-r from-neutral-950 via-[#0a0a09] to-neutral-950 border-b border-neo-gold/20 px-4 py-3 text-center text-xs font-mono tracking-wider text-neo-gold flex items-center justify-center gap-2.5">
         <span className="w-2 h-2 rounded-full bg-neo-gold animate-pulse shrink-0"></span>
         <span className="uppercase text-[10px] sm:text-xs">
-          Website Is In Development Mode. Products Are Not Actual Products And Checkout Is Not Functional. Stay Tuned For More Updates.
+          • CURRENT SELECTIONS FOR JUNE 2026 • INDEPENDENT PERFORMANCE REVIEWS & DIRECT LINKS TO OFFICIAL WEBSITES
         </span>
       </div>
 
@@ -657,14 +1125,6 @@ export default function App() {
             </h1>
             <span className="font-mono text-[9px] tracking-widest text-neutral-500 uppercase mt-0.5">
               Curated Luxury Tech Vault
-            </span>
-          </div>
-
-          {/* Connection Status Indicator */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-neutral-950 border border-neutral-900 rounded-full font-mono text-[10px]">
-            <span className={`w-1.5 h-1.5 rounded-full ${isLiveConnection ? 'bg-emerald-400 animate-pulse' : 'bg-neo-gold'}`}></span>
-            <span className="text-neutral-400 uppercase tracking-wider">
-              {isLiveConnection ? "Shopify Synchronized" : "Developer Sandbox Mode"}
             </span>
           </div>
 
@@ -745,21 +1205,6 @@ export default function App() {
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-neo-gold animate-ping"></span>
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-neo-gold"></span>
             </button>
-
-            {/* Shopping Cart trigger */}
-            <button 
-              onClick={() => setIsCartOpen(!isCartOpen)}
-              className="relative p-2.5 bg-neutral-950 border border-neutral-800 hover:border-neo-gold rounded-md transition-all group"
-              title="Inspect Isolation Vault"
-              id="vault-cart-btn"
-            >
-              <ShoppingBag className="w-4 h-4 text-neutral-400 group-hover:text-neo-gold transition-colors" />
-              {cart.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-neo-gold text-[#050505] font-mono font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
-                  {cart.reduce((s, i) => s + i.quantity, 0)}
-                </span>
-              )}
-            </button>
           </div>
         </div>
       </header>
@@ -824,9 +1269,9 @@ export default function App() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {fetchedProducts.length > 0 && (
+                    {scannedProducts.length > 0 && (
                       <button
-                        onClick={() => setFetchedProducts([])}
+                        onClick={() => setScannedProducts([])}
                         className="px-4 py-2.5 border border-neutral-800 hover:border-rose-950 bg-neutral-900 text-neutral-500 hover:text-rose-450 font-mono text-[9px] uppercase tracking-wider rounded-sm transition-all cursor-pointer"
                       >
                         Clear Results
@@ -868,7 +1313,7 @@ export default function App() {
                       Assessing Gravity metrics, sales-letter conversion structures, and support tools pages for elite campaigns...
                     </span>
                   </div>
-                ) : fetchedProducts.length === 0 ? (
+                ) : scannedProducts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 border border-dashed border-neutral-900 rounded bg-[#030303]/20">
                     <Sparkles className="w-8 h-8 text-neutral-800 mb-4 animate-pulse" />
                     <span className="font-mono text-xs text-neutral-500 uppercase tracking-widest mb-1">Database Idle</span>
@@ -890,44 +1335,45 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-900 text-neutral-300">
-                        {fetchedProducts.map((p, idx) => (
+                        {scannedProducts.map((p, idx) => (
                           <tr key={idx} className="hover:bg-neutral-900/30 transition-colors">
                             <td className="p-4">
                               <img
-                                src={p.image_url || p.imageUrl}
+                                src={getProductPlaceholderImage(p.title)}
                                 alt={p.title}
                                 referrerPolicy="no-referrer"
-                                className="w-12 h-12 object-cover rounded border border-neutral-800 grayscale hover:grayscale-0 transition-all shrink-0 bg-neutral-950"
+                                className="w-12 h-12 object-cover rounded border border-neutral-800 transition-all shrink-0 bg-neutral-950"
                               />
                             </td>
                             <td className="p-4 max-w-[200px]">
                               <div className="flex flex-col">
                                 <span className="font-display font-medium text-xs text-neutral-200 tracking-wide">{p.title}</span>
                                 <a
-                                  href={p.clickbank_hoplink_url || p.toolsUrl}
+                                  href={getClickBankHoplinkUrl(p)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-[9px] text-[#c3a05c] hover:text-[#d3b06c] hover:underline flex items-center gap-1.5 mt-2 max-w-fit"
                                 >
                                   HopLink <ExternalLink className="w-3 h-3 shrink-0" />
                                 </a>
+                                <span className="text-[8px] text-neutral-500 font-mono tracking-tighter mt-1.5 break-all select-all">
+                                  {p.affiliate_tools_url}
+                                </span>
                               </div>
                             </td>
                             <td className="p-4 text-neutral-400 font-light max-w-[300px] leading-relaxed">
                               <p className="text-[10px] text-neutral-300 uppercase leading-snug">
-                                {p.description}
+                                {p.funnel_angle}
                               </p>
-                              {p.conversion_label && (
-                                <span className="px-1.5 py-0.5 bg-neutral-900 border border-neutral-800 rounded font-bold text-[8px] text-neo-gold uppercase tracking-wider inline-block mt-1.5">
-                                  {p.conversion_label}
-                                </span>
-                              )}
+                              <span className="px-1.5 py-0.5 bg-neutral-900/50 border border-neutral-850 rounded font-bold text-[8px] text-neo-gold uppercase tracking-wider inline-block mt-2">
+                                Curated Angle
+                              </span>
                             </td>
-                            <td className="p-4 text-center font-bold text-neutral-200 text-xs text-neo-gold">
-                              {parseFloat(p.gravity_score || p.gravity || 0).toFixed(1)}
+                            <td className="p-4 text-center font-bold text-neutral-200 text-xs text-neo-gold font-mono">
+                              {parseFloat(p.gravity_score || 0).toFixed(1)}
                             </td>
                             <td className="p-4 text-right font-semibold text-emerald-450 text-xs font-mono">
-                              ${parseFloat(p.expected_payout || p.payout || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              {p.avg_per_conversion}
                             </td>
                             <td className="p-4 text-right">
                               <button
@@ -955,18 +1401,26 @@ export default function App() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Add Product Form */}
-                <div className="lg:col-span-12 xl:col-span-5 bg-neutral-950 border border-neutral-900 p-6 rounded-lg h-fit">
+                <div id="admin-compilation-form" className="lg:col-span-12 xl:col-span-5 bg-neutral-950 border border-neutral-900 p-6 rounded-lg h-fit">
                   <h4 className="font-mono text-[9px] text-neo-gold uppercase tracking-widest mb-6 pb-2 border-b border-neutral-900 flex items-center justify-between font-bold">
                     <span className="flex items-center gap-1.5">
-                      <Plus className="w-4 h-4 text-neo-gold" /> REGISTER NEW COMPILATION
+                      {editingProductId ? (
+                        <>
+                          <Edit className="w-4 h-4 text-neo-gold" /> EDIT HOUSE ELEMENT
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 text-neo-gold" /> REGISTER NEW COMPILATION
+                        </>
+                      )}
                     </span>
-                    {(formTitle || formDescription || formPrice || formImageUrl || formAffiliateUrl) && (
+                    {(formTitle || formDescription || formPrice || formImageUrl || formAffiliateUrl || editingProductId) && (
                       <button 
                         type="button" 
                         onClick={handleClearFormFields}
                         className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-rose-400 hover:border-rose-950 font-mono text-[8px] uppercase tracking-widest rounded-sm transition-colors cursor-pointer"
                       >
-                        Clear Fields
+                        {editingProductId ? "Cancel Edit" : "Clear Fields"}
                       </button>
                     )}
                   </h4>
@@ -1060,9 +1514,19 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5">
-                        Image URL *
-                      </label>
+                      <div className="flex justify-between items-center mb-1.5 gap-2 flex-wrap">
+                        <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest">
+                          Image URL *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={generateThemedImagePlaceholder}
+                          className="px-2.5 py-1 border border-neo-gold/30 hover:border-neo-gold text-neo-gold hover:bg-neo-gold/10 text-[8px] font-mono tracking-wider uppercase transition-all rounded-sm cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                          title="Generate a high-contrast dark clinical aesthetic placeholder using title + keywords"
+                        >
+                          ✨ Generate Themed Placeholder
+                        </button>
+                      </div>
                       <input 
                         type="url"
                         required
@@ -1139,12 +1603,119 @@ export default function App() {
                       </div>
                     </div>
 
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>SEO Headline</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic">optional but recommended</span>
+                      </label>
+                      <input 
+                        type="text"
+                        value={formSeoHeadline}
+                        onChange={(e) => setFormSeoHeadline(e.target.value)}
+                        placeholder="e.g., Discover Your True Path with a Personalized Moon Reading"
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>Who This Is For</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic font-light">textarea</span>
+                      </label>
+                      <textarea 
+                        rows={2}
+                        value={formWhoItIsFor}
+                        onChange={(e) => setFormWhoItIsFor(e.target.value)}
+                        placeholder="Describe target demographics, aspirations, or pain points..."
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>Why It Works</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic font-light">textarea</span>
+                      </label>
+                      <textarea 
+                        rows={2}
+                        value={formWhyItWorks}
+                        onChange={(e) => setFormWhyItWorks(e.target.value)}
+                        placeholder="Highlight conversion factors, psychology hooks, or rewards..."
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>SEO Keywords</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic">comma-separated list</span>
+                      </label>
+                      <input 
+                        type="text"
+                        value={formSeoKeywords}
+                        onChange={(e) => setFormSeoKeywords(e.target.value)}
+                        placeholder="e.g., astrology, moon reading, horoscope, zodiac"
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-[#070707] border border-neutral-900 rounded">
+                      <span className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest">
+                        Is Subscription Billing Structure?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFormIsSubscription(!formIsSubscription)}
+                        className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          formIsSubscription ? 'bg-neo-gold' : 'bg-neutral-800'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-black shadow ring-0 transition duration-200 ease-in-out ${
+                            formIsSubscription ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>Refund Guarantee Window</span>
+                        <span className="text-[8px] text-neutral-500 lowercase">default: 60-Day</span>
+                      </label>
+                      <input 
+                        type="text"
+                        value={formRefundWindow}
+                        onChange={(e) => setFormRefundWindow(e.target.value)}
+                        placeholder="e.g., 60-Day, 30-Day, Lifetime"
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>Included Features / Modules</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic font-light">one item per line</span>
+                      </label>
+                      <textarea 
+                        rows={3}
+                        value={formIncludedFeatures}
+                        onChange={(e) => setFormIncludedFeatures(e.target.value)}
+                        placeholder="e.g.&#10;Immediate Digital Access&#10;All Modules & Practical Exercising Tools&#10;24/7 Concierge Support Help"
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors resize-none"
+                      />
+                    </div>
+
                     <button
                       type="submit"
                       disabled={isSubmitting}
                       className="glow-btn w-full py-3 bg-neo-gold hover:bg-yellow-600 disabled:bg-neutral-800 disabled:text-neutral-600 text-black font-mono text-[10px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
-                      {isSubmitting ? "REPRODUCING RECORD..." : "DEPLOY CLICKBANK PRODUCT"}
+                      {isSubmitting ? (
+                        editingProductId ? "SAVING COMPILATION..." : "REPRODUCING RECORD..."
+                      ) : (
+                        editingProductId ? "SAVE CHANGES" : "DEPLOY CLICKBANK PRODUCT"
+                      )}
                     </button>
                   </form>
                 </div>
@@ -1168,7 +1739,7 @@ export default function App() {
                               src={p.images[0]?.url} 
                               alt={p.title} 
                               referrerPolicy="no-referrer"
-                              className="w-14 h-14 rounded object-cover border border-neutral-900 grayscale bg-neutral-900 shrink-0"
+                              className="w-14 h-14 rounded object-cover border border-neutral-900 bg-neutral-900 shrink-0"
                             />
                             <div className="flex flex-col min-w-0">
                               <span className="font-display font-medium text-sm text-neutral-200 truncate">{p.title}</span>
@@ -1178,7 +1749,7 @@ export default function App() {
                           </div>
 
                           {/* Confirmation Deletion UI block */}
-                          <div className="shrink-0 pt-1">
+                          <div className="shrink-0 pt-1 flex items-center gap-2">
                             {activeDeleteId === p.id ? (
                               <div className="flex flex-col items-end gap-2 p-2.5 bg-[#0e0404] border border-rose-900/40 rounded-md">
                                 <span className="text-[8px] text-rose-500 uppercase font-mono tracking-widest">CONFIRM REMOVE PIECE?</span>
@@ -1198,13 +1769,22 @@ export default function App() {
                                 </div>
                               </div>
                             ) : (
-                              <button 
-                                onClick={() => setActiveDeleteId(p.id)}
-                                className="flex items-center gap-1.5 px-3 py-2 border border-rose-950/30 text-rose-500 bg-rose-950/5 hover:bg-rose-100 hover:text-black transition-all font-mono text-[8px] tracking-widest uppercase rounded-sm cursor-pointer"
-                                title="Remove item"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" /> REMOVE
-                              </button>
+                              <>
+                                <button 
+                                  onClick={() => handleEditProduct(p)}
+                                  className="flex items-center gap-1.5 px-3 py-2 border border-neutral-800 text-neutral-400 hover:border-neo-gold hover:text-neo-gold bg-neutral-950 hover:bg-neutral-900 transition-all font-mono text-[8px] tracking-widest uppercase rounded-sm cursor-pointer"
+                                  title="Edit item details"
+                                >
+                                  <Edit className="w-3.5 h-3.5" /> EDIT
+                                </button>
+                                <button 
+                                  onClick={() => setActiveDeleteId(p.id)}
+                                  className="flex items-center gap-1.5 px-3 py-2 border border-rose-950/30 text-rose-500 bg-rose-950/5 hover:bg-rose-100 hover:text-black transition-all font-mono text-[8px] tracking-widest uppercase rounded-sm cursor-pointer"
+                                  title="Remove item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> REMOVE
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -1232,22 +1812,15 @@ export default function App() {
                 </h2>
                 
                 <p className="text-sm md:text-base text-neutral-400 font-light leading-relaxed mb-8">
-                  BuyerSpotted curates physical elements engineered for total focus, sensory isolation, and mechanical synchronicity. Explore selected items and browse options seamlessly.
+                  BuyerSpotted deploys agentic research pipelines to isolate, verify, and index high-performance digital systems and wellness technologies. Unbiased analysis. Zero distraction.
                 </p>
 
                 <div className="flex flex-wrap gap-4">
-                  <button 
-                    onClick={() => setIsChatOpen(true)}
-                    className="glow-btn flex items-center gap-2 px-5 py-3 bg-neo-gold hover:bg-yellow-600 text-[#050505] font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm transition-all cursor-pointer"
-                    id="banner-chat-cta"
-                  >
-                    Consult Curator <ArrowUpRight className="w-3.5 h-3.5" />
-                  </button>
                   <a 
                     href="#catalog-view" 
-                    className="flex items-center gap-2 px-5 py-3 bg-transparent hover:bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm transition-all"
+                    className="glow-btn flex items-center gap-2 px-5 py-3 bg-neo-gold hover:bg-yellow-600 text-[#050505] font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm transition-all text-center"
                   >
-                    Inspect Vault
+                    EXPLORE ACTIVE VAULT <ArrowUpRight className="w-3.5 h-3.5" />
                   </a>
                 </div>
               </div>
@@ -1258,7 +1831,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-neutral-900 pb-6">
                 <div>
                   <h3 className="font-display font-semibold text-lg md:text-xl tracking-wider uppercase text-neutral-200">
-                    Curated Index
+                    Verified Utility Vault
                   </h3>
                   <p className="font-mono text-xs text-neutral-500 mt-1">
                     Displaying {filteredProducts.length} elite material elements
@@ -1277,7 +1850,11 @@ export default function App() {
                           : "border-neutral-900 text-neutral-400 hover:text-neutral-200 hover:border-neutral-800 bg-neutral-950"
                       }`}
                     >
-                      {cat === "All" ? "ALL SCHEMAS" : cat}
+                      {cat === "All" 
+                        ? "ALL SCHEMAS" 
+                        : cat === "ClickBank Curated" 
+                          ? "BRAIN & MENTAL PERFORMANCE" 
+                          : cat}
                     </button>
                   ))}
                 </div>
@@ -1299,12 +1876,14 @@ export default function App() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProducts.map((p) => {
+                  {filteredProducts.map((p, idx) => {
                     const primaryImage = p.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600";
-                    const secondaryImage = p.images[1]?.url || primaryImage;
+                    const secondaryImage = idx === 0
+                      ? "/src/assets/images/futuristic_phone_brain_1780703733009.png"
+                      : (p.images[1]?.url || primaryImage);
                     
                     return (
-                      <motion.article 
+                      <motion.article
                         key={p.id}
                         layoutId={`product-card-${p.id}`}
                         initial={{ opacity: 0, y: 15 }}
@@ -1312,89 +1891,33 @@ export default function App() {
                         viewport={{ once: true }}
                         transition={{ duration: 0.35 }}
                         className="group flex flex-col justify-between bg-neutral-950 border border-neutral-900 rounded-lg p-5 hover:border-neutral-800 transition-all cursor-pointer relative"
-                        onClick={() => openQuickView(p)}
+                        onClick={() => navigateToProduct(p.id)}
                       >
                         <div>
-                          {/* Image Frame with Double-Exposure Hover effect */}
-                          <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-neutral-900 mb-5 border border-neutral-900">
+                          {/* Image Frame */}
+                          <div className="relative aspect-[4/3] rounded-md overflow-hidden bg-neutral-900 mb-4 border border-neutral-900">
                             <img 
-                              src={primaryImage} 
-                              alt={p.title}
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover grayscale brightness-90 contrast-105 group-hover:opacity-0 transition-opacity duration-500"
+                               src={primaryImage} 
+                               alt={p.title}
+                               referrerPolicy="no-referrer"
+                               className="w-full h-full object-cover brightness-95 contrast-105"
                             />
-                            <img 
-                              src={secondaryImage} 
-                              alt={p.title}
-                              referrerPolicy="no-referrer"
-                              className="absolute inset-0 w-full h-full object-cover grayscale brightness-95 contrast-105 opacity-0 group-hover:opacity-100 transition-opacity duration-500 scale-102"
-                            />
-                            
-                            {/* Interactive floating indicator */}
-                            <div className="absolute bottom-3 right-3 p-1.5 bg-[#050505]/80 backdrop-blur-md border border-neutral-800 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-sm">
-                              <Eye className="w-3.5 h-3.5 text-neo-gold" />
-                            </div>
-
-                            {p.category && (
-                              <div className="absolute top-3 left-3 px-2 py-0.5 bg-[#050505]/80 backdrop-blur-md rounded-sm border border-neutral-800">
-                                <span className="font-mono text-[8px] tracking-widest text-[#c3a05c] uppercase">
-                                  {p.category}
-                                </span>
-                              </div>
-                            )}
                           </div>
 
-                          {/* Title & Metadata */}
-                          <div className="flex items-start justify-between gap-4 mb-2">
-                            <h4 className="font-display font-medium text-base text-neutral-100 group-hover:text-neo-gold transition-colors truncate">
-                              {p.title}
-                            </h4>
-                          </div>
-
-                          {/* Brief description excerpt */}
-                          <p className="text-xs text-neutral-400 font-light leading-relaxed mb-5 line-clamp-2">
-                            {p.description}
-                          </p>
+                          {/* Title */}
+                          <h4 className="font-display font-medium text-base text-neutral-100 group-hover:text-neo-gold transition-colors truncate mb-4">
+                            {p.title}
+                          </h4>
                         </div>
 
-                        <div>
-                          {/* Technical specifications panel on hover */}
-                          {p.specifications && (
-                            <div className="hidden group-hover:block mb-4 pt-3 border-t border-neutral-900">
-                              <div className="grid grid-cols-2 gap-y-1 gap-x-2 font-mono text-[9px]">
-                                {Object.entries(p.specifications).slice(0, 2).map(([k, v]) => (
-                                  <div key={k} className="truncate">
-                                    <span className="text-neutral-500">{k}:</span> <span className="text-neutral-300">{v}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Bottom row: Price & Cart Addition controller */}
-                          <div className="flex items-center justify-between pt-3 border-t border-neutral-900">
-                            <div className="flex flex-col min-w-0 pr-2">
-                              <span className="font-mono text-[9px] text-neo-gold tracking-wider uppercase font-semibold truncate block">
-                                {p.conversionLabel || "Expected Payout"}
-                              </span>
-                              <span className="font-mono text-xs font-semibold text-neutral-300 mt-0.5">
-                                Comm: ${parseFloat(p.priceMin.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-
-                            <button
-                              id={`add-btn-${p.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (p.variants[0]) {
-                                  handleAddToCart(p, p.variants[0], 1);
-                                }
-                              }}
-                              className="px-3.5 py-2 bg-neutral-900 hover:bg-neo-gold hover:text-black border border-neutral-800 transition-colors font-mono text-[9px] tracking-widest uppercase rounded-sm cursor-pointer"
-                            >
-                              Secure Shell
-                            </button>
-                          </div>
+                        {/* READ REVIEW Button */}
+                        <div className="pt-3 border-t border-neutral-900 flex justify-end">
+                          <button
+                            className="w-full px-3 py-2 border border-neutral-800 text-neutral-400 group-hover:border-neo-gold group-hover:text-[#050505] group-hover:bg-neo-gold transition-all font-mono text-[9px] tracking-widest uppercase rounded-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Read Review</span>
+                            <ArrowUpRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                          </button>
                         </div>
                       </motion.article>
                     );
@@ -1512,7 +2035,7 @@ export default function App() {
                           src={item.product.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600"} 
                           alt={item.product.title}
                           referrerPolicy="no-referrer"
-                          className="w-16 h-16 object-cover bg-neutral-900 rounded-sm border border-neutral-900 grayscale"
+                          className="w-16 h-16 object-cover bg-neutral-900 rounded-sm border border-neutral-900"
                         />
                         <div className="flex-1 flex flex-col justify-between">
                           <div>
@@ -1719,7 +2242,7 @@ export default function App() {
                         src={selectedProduct.images[activeImageIdx]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600"} 
                         alt={selectedProduct.images[activeImageIdx]?.altText || selectedProduct.title}
                         referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover grayscale brightness-95"
+                        className="w-full h-full object-cover brightness-95"
                       />
                     </div>
 
@@ -1731,7 +2254,7 @@ export default function App() {
                             key={idx}
                             onClick={() => setActiveImageIdx(idx)}
                             className={`w-14 h-14 rounded-md overflow-hidden bg-neutral-900 border transition-all ${
-                              activeImageIdx === idx ? "border-neo-gold grayscale-0" : "border-neutral-900 hover:border-neutral-700 grayscale"
+                              activeImageIdx === idx ? "border-neo-gold" : "border-neutral-900 hover:border-neutral-700"
                             }`}
                           >
                             <img src={img.url} alt="thumbnail" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
@@ -1776,6 +2299,42 @@ export default function App() {
                     <p className="text-xs text-neutral-300 font-light leading-relaxed mb-6">
                       {selectedProduct.description}
                     </p>
+                    
+                    {/* SEO / Curated Multi-Channel Copy Section */}
+                    {(selectedProduct.seoHeadline || selectedProduct.whoItIsFor || selectedProduct.whyItWorks || selectedProduct.seoKeywords) && (
+                      <div className="mb-6 p-4 bg-[#090909] border border-neutral-900 rounded-lg space-y-4 font-mono text-[10px]">
+                        {selectedProduct.seoHeadline && (
+                          <div>
+                            <span className="text-[8px] text-neo-gold uppercase tracking-widest block mb-1">SEO Headline</span>
+                            <p className="text-neutral-100 font-display font-medium text-xs tracking-normal leading-normal">{selectedProduct.seoHeadline}</p>
+                          </div>
+                        )}
+                        {selectedProduct.whoItIsFor && (
+                          <div>
+                            <span className="text-[8px] text-[#c3a05c] uppercase tracking-widest block mb-0.5">Who This Is For</span>
+                            <p className="text-neutral-400 font-light leading-relaxed">{selectedProduct.whoItIsFor}</p>
+                          </div>
+                        )}
+                        {selectedProduct.whyItWorks && (
+                          <div>
+                            <span className="text-[8px] text-[#c3a05c] uppercase tracking-widest block mb-0.5">Why It Works</span>
+                            <p className="text-neutral-400 font-light leading-relaxed">{selectedProduct.whyItWorks}</p>
+                          </div>
+                        )}
+                        {selectedProduct.seoKeywords && (
+                          <div>
+                            <span className="text-[8px] text-neutral-500 uppercase tracking-widest block mb-1.5">Target Search Keywords</span>
+                            <div className="flex flex-wrap gap-1">
+                              {selectedProduct.seoKeywords.split(",").map((kw, i) => kw.trim() && (
+                                <span key={i} className="px-1.5 py-0.5 bg-neutral-950 border border-neutral-900 rounded text-[8px] text-neutral-400 uppercase font-light">
+                                  {kw.trim()}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Variant Selectors (Radio buttons style) */}
                     {selectedProduct.variants.length > 0 && (
@@ -1858,17 +2417,31 @@ export default function App() {
                     </div>
 
                     {/* Add Button */}
-                    <button
-                      onClick={() => {
-                        if (selectedProduct && modalVariant) {
-                          handleAddToCart(selectedProduct, modalVariant, modalQuantity);
-                          setSelectedProduct(null); // Close modal
-                        }
-                      }}
-                      className="glow-btn w-full py-3.5 bg-neo-gold hover:bg-yellow-600 text-[#050505] font-mono text-[10px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      SECURE COMPILATION TO VAULT <ShoppingBag className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          if (selectedProduct && modalVariant) {
+                            handleAddToCart(selectedProduct, modalVariant, modalQuantity);
+                            setSelectedProduct(null); // Close modal
+                          }
+                        }}
+                        className="glow-btn w-full py-3.5 bg-neo-gold hover:bg-yellow-600 text-[#050505] font-mono text-[10px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        SECURE COMPILATION TO VAULT <ShoppingBag className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (selectedProduct) {
+                            navigateToProduct(selectedProduct.id);
+                            setSelectedProduct(null); // Close modal
+                          }
+                        }}
+                        className="w-full py-2.5 border border-neutral-900 hover:border-[#c3a05c] bg-neutral-950 text-neutral-400 hover:text-[#c3a05c] font-mono text-[9px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        VIEW PRE-SELL BRIDGE PAGE <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                 </div>
