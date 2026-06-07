@@ -1,10 +1,23 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
+
+/**
+ * CRITICAL EPHEMERAL FILESYSTEM GUARD — Render deploys wipe all locally-generated directories.
+ * Use ensureDir() before ANY write operation that touches a filesystem path.
+ * This guarantees the target directory tree exists before writeFileSync is called.
+ */
+function ensureDirSync(dirPath: string): void {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+    console.log(`[FilesystemGuard] Created directory: ${dirPath}`);
+  }
+}
 
 // Ensure GOOGLE_API_KEY is mapped from GEMINI_API_KEY if needed, before handlers load
 if (!process.env.GOOGLE_API_KEY && process.env.GEMINI_API_KEY) {
