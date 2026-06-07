@@ -98,6 +98,37 @@
         }
       },
       "required": ["isOpen"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "Visitor session details.",
+      "type": "object",
+      "properties": {
+        "startTime": {
+          "type": "string",
+          "description": "ISO timestamp when session began."
+        },
+        "lastActiveTime": {
+          "type": "string",
+          "description": "ISO timestamp of most recent interaction."
+        },
+        "duration": {
+          "type": "integer",
+          "description": "Elapsed seconds active on site."
+        },
+        "pagesVisited": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Page traversal history tracker."
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "Resolved platform metadata."
+        }
+      },
+      "required": ["startTime", "lastActiveTime", "duration", "pagesVisited", "userAgent"]
     }
   },
   "firestore": {
@@ -112,6 +143,10 @@
     "settings/{settingId}": {
       "schema": "Setting",
       "description": "Global config store."
+    },
+    "sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Visitor analytics session tracking."
     }
   }
 }

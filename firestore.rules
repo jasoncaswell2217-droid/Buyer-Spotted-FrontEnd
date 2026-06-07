@@ -28,10 +28,12 @@ service cloud.firestore {
       );
     }
     function isAdmin() { 
-      // Secure admin check based directly on email mapping or cryptographically verified master UID
+      // Secure admin check based directly on email mapping, UID, or Firestore role document
       return isSignedIn() && (
         request.auth.token.email == 'jasoncaswell2217@gmail.com' ||
-        request.auth.uid == 'gsspiji9zaXVx2PGbisrPydOVib2'
+        request.auth.uid == 'gsspiji9zaXVx2PGbisrPydOVib2' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 1)
       );
     }
 
@@ -71,6 +73,18 @@ service cloud.firestore {
       return data.keys().hasAll(['isOpen'])
         && data.keys().size() == 1
         && data.isOpen is bool;
+    }
+
+    // Helper: validate session structure
+    function isValidSession(data) {
+      return data.keys().hasAll(['startTime', 'lastActiveTime', 'duration', 'pagesVisited', 'userAgent'])
+        && data.keys().size() == 5
+        && data.startTime is string
+        && data.lastActiveTime is string
+        && data.duration is int
+        && data.duration >= 0
+        && data.pagesVisited is list
+        && data.userAgent is string;
     }
 
     // Rules for User documents
@@ -120,6 +134,15 @@ service cloud.firestore {
       allow create, update: if isAdmin()
         && isValidId(settingId)
         && isValidSetting(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Sessions documents
+    match /sessions/{sessionId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, update: if isValidId(sessionId)
+        && isValidSession(incoming());
       allow delete: if isAdmin();
     }
   }

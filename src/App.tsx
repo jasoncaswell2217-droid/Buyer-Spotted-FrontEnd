@@ -21,7 +21,10 @@ import {
   ShieldAlert,
   LogOut,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  BarChart3,
+  Clock,
+  Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ShopifyProduct, ShopifyVariant, CartItem, ChatMessage } from "./types";
@@ -126,6 +129,34 @@ const getClickBankHoplinkUrl = (p: any): string => {
   return `https://wolfjay26.${inferredVendor}.hop.clickbank.net`;
 };
 
+const ADMIN_EMAIL = "jasoncaswell2217@gmail.com";
+
+const formatVisitorArrivalTime = (isoString: string): string => {
+  if (!isoString) return "Just now";
+  try {
+    const date = new Date(isoString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    // Check if yesterday
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    const timeString = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (isToday) {
+      return `Today, ${timeString}`;
+    } else if (isYesterday) {
+      return `Yesterday, ${timeString}`;
+    } else {
+      const dateString = date.toLocaleDateString([], { month: "short", day: "numeric" });
+      return `${dateString}, ${timeString}`;
+    }
+  } catch (e) {
+    return "Recently";
+  }
+};
+
 export default function App() {
   // State elements
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
@@ -177,7 +208,7 @@ export default function App() {
 
   // Administration View and ClickBank Form State
   const [isAdminViewActive, setIsAdminViewActive] = useState(false);
-  const [adminTab, setAdminTab] = useState<"vault" | "warehouse" | "settings">("vault");
+  const [adminTab, setAdminTab] = useState<"vault" | "warehouse" | "settings" | "analytics">("vault");
   const [siteSettings, setSiteSettings] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [isSettingsSaving, setIsSettingsSaving] = useState(false);
   const [scannedProducts, setScannedProducts] = useState<any[]>([]);
@@ -204,6 +235,107 @@ export default function App() {
   const [formSuccess, setFormSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+
+  // Analytics Tracking & Admin Dashboard states
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [visitedPages, setVisitedPages] = useState<string[]>(["Home Catalog"]);
+
+  // Track page navigation of visitors (e.g. Home, viewing a specific product)
+  useEffect(() => {
+    if (selectedProduct) {
+      const pageName = `Product: ${selectedProduct.title}`;
+      setVisitedPages(prev => {
+        if (prev[prev.length - 1] !== pageName) {
+          return [...prev, pageName];
+        }
+        return prev;
+      });
+    } else {
+      setVisitedPages(prev => {
+        if (prev[prev.length - 1] !== "Home Catalog" && prev.length > 1) {
+          return [...prev, "Home Catalog"];
+        }
+        return prev;
+      });
+    }
+  }, [selectedProduct]);
+
+  // Visitor Session Tracking Process (Bypasses Administrators)
+  useEffect(() => {
+    if (isAuthChecking) return;
+
+    // Do not include Administrator as a visitor
+    const isAdmin = userProfile?.role === UserRole.ADMIN || currentUser?.email === ADMIN_EMAIL;
+    if (isAdmin) return;
+
+    let sessionId = sessionStorage.getItem("buyerspotted_session_id");
+    let startTime = sessionStorage.getItem("buyerspotted_session_start");
+    const userAgent = navigator.userAgent || "Unknown Device";
+
+    let browserName = "Firefox";
+    if (userAgent.includes("Chrome")) browserName = "Chrome";
+    else if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) browserName = "Safari";
+    else if (userAgent.includes("Edge")) browserName = "Edge";
+
+    let deviceType = "Desktop";
+    if (/\b(Mobi|Android|iPhone)\b/i.test(userAgent)) {
+      deviceType = "Mobile";
+    } else if (/\b(iPad|Tablet)\b/i.test(userAgent)) {
+      deviceType = "Tablet";
+    }
+
+    if (!sessionId) {
+      sessionId = "sess_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
+      sessionStorage.setItem("buyerspotted_session_id", sessionId);
+      sessionStorage.setItem("buyerspotted_session_start", String(Date.now()));
+      startTime = String(Date.now());
+    }
+
+    const sessionStartMs = Number(startTime);
+    const docRef = doc(db, "sessions", sessionId);
+
+    const syncSession = async () => {
+      const elapsedSeconds = Math.floor((Date.now() - sessionStartMs) / 1000);
+      try {
+        await setDoc(docRef, {
+          startTime: new Date(sessionStartMs).toISOString(),
+          lastActiveTime: new Date().toISOString(),
+          duration: Math.max(0, elapsedSeconds),
+          pagesVisited: visitedPages,
+          userAgent: `${browserName} (${deviceType})`
+        });
+      } catch (err) {
+        // Silently capture since write permissions are checked
+      }
+    };
+
+    // Immediate sync
+    syncSession();
+
+    // Constant ping loop
+    const intervalId = setInterval(syncSession, 12000);
+
+    return () => clearInterval(intervalId);
+  }, [userProfile, currentUser, isAuthChecking, visitedPages]);
+
+  // Admin exclusive real-time sessions database feed
+  useEffect(() => {
+    let unsubscribeSessions: (() => void) | null = null;
+    if (userProfile?.role === UserRole.ADMIN) {
+      const q = query(collection(db, "sessions"), orderBy("startTime", "desc"));
+      unsubscribeSessions = onSnapshot(q, (snapshot) => {
+        const list = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        setSessions(list);
+      }, (err) => {
+        console.error("Firestore sessions loading error:", err);
+      });
+    } else {
+      setSessions([]);
+    }
+    return () => {
+      if (unsubscribeSessions) unsubscribeSessions();
+    };
+  }, [userProfile]);
 
   // Deletion tracking state
   const [activeDeleteId, setActiveDeleteId] = useState<string | null>(null);
@@ -1285,6 +1417,16 @@ export default function App() {
                     >
                       <Sliders className="w-3 h-3 text-current" /> Site Settings
                     </button>
+                    <button
+                      onClick={() => setAdminTab("analytics")}
+                      className={`px-3 py-1.5 font-mono text-[9px] tracking-widest uppercase rounded-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                        adminTab === "analytics"
+                          ? "bg-neo-gold text-black font-semibold"
+                          : "text-neutral-550 hover:text-neutral-300"
+                      }`}
+                    >
+                      <BarChart3 className="w-3 h-3 text-current" /> Live Analytics
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1527,6 +1669,327 @@ export default function App() {
                       </li>
                     </ul>
                   </div>
+                </div>
+              </div>
+            ) : adminTab === "analytics" ? (
+              <div className="space-y-8 animate-in fade-in duration-300">
+                {/* Analytics Key Metrics Dashboard */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Metric 1: Live Visitors */}
+                  <div className="bg-neutral-950 border border-neutral-900 p-5 rounded-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-neo-gold/5 blur-3xl rounded-full"></div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-mono text-[9px] text-neutral-500 uppercase tracking-widest block">Active Right Now</span>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-sans font-bold text-3xl text-neutral-100 tracking-tight">
+                        {sessions.filter(s => (Date.now() - new Date(s.lastActiveTime).getTime()) < 60000).length}
+                      </span>
+                      <span className="font-mono text-[9px] text-emerald-450 uppercase tracking-wider font-semibold">Active Visitors</span>
+                    </div>
+                  </div>
+
+                  {/* Metric 2: Total Sessions */}
+                  <div className="bg-neutral-950 border border-neutral-900 p-5 rounded-lg relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-mono text-[9px] text-neutral-500 uppercase tracking-widest block">Total Visits</span>
+                      <Users className="w-4 h-4 text-neutral-600" />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-sans font-bold text-3xl text-neutral-100 tracking-tight">
+                        {sessions.length}
+                      </span>
+                      <span className="font-mono text-[9px] text-neutral-400 uppercase tracking-wider">Unique Journeys</span>
+                    </div>
+                  </div>
+
+                  {/* Metric 3: Average Visit Length */}
+                  <div className="bg-neutral-950 border border-neutral-900 p-5 rounded-lg relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-mono text-[9px] text-neutral-500 uppercase tracking-widest block">Average Stay Length</span>
+                      <Clock className="w-4 h-4 text-neutral-600" />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-sans font-bold text-3xl text-neutral-100 tracking-tight">
+                        {(() => {
+                          if (sessions.length === 0) return "0s";
+                          const totalSecs = sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+                          const avgSecs = Math.round(totalSecs / sessions.length);
+                          if (avgSecs < 60) return `${avgSecs}s`;
+                          const mins = Math.floor(avgSecs / 60);
+                          const remSecs = avgSecs % 60;
+                          return `${mins}m ${remSecs}s`;
+                        })()}
+                      </span>
+                      <span className="font-mono text-[9px] text-neutral-400 uppercase tracking-wider">Per Visitor</span>
+                    </div>
+                  </div>
+
+                  {/* Metric 4: Top product section */}
+                  <div className="bg-neutral-950 border border-neutral-900 p-5 rounded-lg relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-mono text-[9px] text-neutral-500 uppercase tracking-widest block">Peak Interest Hub</span>
+                      <Sliders className="w-4 h-4 text-neutral-600" />
+                    </div>
+                    <div className="truncate pr-4">
+                      <span className="font-display font-medium text-sm text-neo-gold block uppercase truncate">
+                        {(() => {
+                          const pageCounts: Record<string, number> = {};
+                          sessions.forEach(s => {
+                            if (Array.isArray(s.pagesVisited)) {
+                              s.pagesVisited.forEach(p => {
+                                pageCounts[p] = (pageCounts[p] || 0) + 1;
+                              });
+                            }
+                          });
+                          let topPage = "No views yet";
+                          let topCount = 0;
+                          Object.entries(pageCounts).forEach(([p, count]) => {
+                            if (count > topCount) {
+                              topCount = count;
+                              topPage = p.replace("Product: ", "");
+                            }
+                          });
+                          return topPage;
+                        })()}
+                      </span>
+                      <span className="font-mono text-[9px] text-neutral-500 uppercase tracking-wider block mt-1">Most Clicked Segment</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Graphical Charts Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Real-time Arrival Timeline Chart */}
+                  <div className="bg-neutral-950 border border-neutral-900 p-6 rounded-lg">
+                    <div className="border-b border-neutral-900 pb-4 mb-6">
+                      <h4 className="font-mono text-xs text-neo-gold uppercase tracking-widest font-bold flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-neo-gold" /> Arrival Clock (When they came)
+                      </h4>
+                      <p className="font-mono text-[9px] text-neutral-500 uppercase mt-1">
+                        Peak visual frequency representation of visitors throughout the day
+                      </p>
+                    </div>
+
+                    <div className="w-full h-64 flex flex-col justify-between pt-4">
+                      {/* Interactive Responsive SVG Bar Chart */}
+                      {(() => {
+                        const hCount = Array(24).fill(0);
+                        sessions.forEach(s => {
+                          if (s.startTime) {
+                            const date = new Date(s.startTime);
+                            const h = date.getHours();
+                            if (h >= 0 && h < 24) hCount[h]++;
+                          }
+                        });
+                        const doubleHourLabels = [
+                          "12a", "2a", "4a", "6a", "8a", "10a",
+                          "12p", "2p", "4p", "6p", "8p", "10p"
+                        ];
+                        const blockData = Array(12).fill(0);
+                        hCount.forEach((v, h) => {
+                          const blockIndex = Math.floor(h / 2) % 12;
+                          blockData[blockIndex] += v;
+                        });
+                        const maxBlockVal = Math.max(...blockData, 1);
+
+                        return (
+                          <div className="flex-1 flex flex-col justify-end w-full">
+                            {/* Graphic columns */}
+                            <div className="flex items-end justify-between h-44 px-2 border-b border-neutral-905">
+                              {blockData.map((val, idx) => {
+                                const pct = (val / maxBlockVal) * 100;
+                                return (
+                                  <div key={idx} className="flex-1 flex flex-col items-center group relative mx-1">
+                                    {/* Column tooltip bubble on hover */}
+                                    <div className="absolute bottom-full mb-1 bg-neutral-900 border border-neutral-800 text-neutral-200 font-mono text-[9px] uppercase py-1 px-2 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center shadow-lg min-w-[70px]">
+                                      <span className="block font-bold text-neo-gold">{val} visitor{val !== 1 ? 's' : ''}</span>
+                                      <span className="text-[8px] text-neutral-400">At {doubleHourLabels[idx]}</span>
+                                    </div>
+
+                                    {/* Actual graphic golden bar */}
+                                    <div 
+                                      style={{ height: `${Math.max(pct, 4)}%` }}
+                                      className={`w-full rounded-t-xs transition-all duration-500 ${
+                                        val > 0 
+                                          ? "bg-neo-gold hover:bg-yellow-500 shadow-[0_0_12px_rgba(195,160,92,0.15)]" 
+                                          : "bg-neutral-900"
+                                      }`}
+                                    ></div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* Axis Label scale */}
+                            <div className="flex justify-between mt-3 px-2">
+                              {doubleHourLabels.map((lbl, idx) => (
+                                <span key={idx} className="flex-1 text-center font-mono text-[8px] text-neutral-500 uppercase tracking-widest">
+                                  {lbl}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Visit Length Distribution Horizontal Chart */}
+                  <div className="bg-neutral-950 border border-neutral-900 p-6 rounded-lg">
+                    <div className="border-b border-neutral-900 pb-4 mb-6">
+                      <h4 className="font-mono text-xs text-neo-gold uppercase tracking-widest font-bold flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-neo-gold" /> Stay Length Distribution (How long they stayed)
+                      </h4>
+                      <p className="font-mono text-[9px] text-neutral-500 uppercase mt-1">
+                        Grouping visitor stays from quick bounces to highly engaged researchers
+                      </p>
+                    </div>
+
+                    {/* Stay duration ranges mapping */}
+                    <div className="space-y-5 pt-2">
+                      {(() => {
+                        let bounce = 0;
+                        let brief = 0;
+                        let engaged = 0;
+                        let deep = 0;
+
+                        sessions.forEach(s => {
+                          const d = s.duration || 0;
+                          if (d < 15) bounce++;
+                          else if (d < 60) brief++;
+                          else if (d < 300) engaged++;
+                          else deep++;
+                        });
+
+                        const categories = [
+                          { label: "Bounced Instantly (Under 15 seconds)", value: bounce, color: "bg-red-500/80" },
+                          { label: "Quick Browser (15 to 60 seconds)", value: brief, color: "bg-amber-500/80" },
+                          { label: "Engaged Reader (1 to 5 minutes)", value: engaged, color: "bg-neo-gold" },
+                          { label: "Deep Researcher (Over 5 minutes)", value: deep, color: "bg-emerald-500/80" }
+                        ];
+
+                        const maxVisitsVal = Math.max(...categories.map(c => c.value), 1);
+
+                        return categories.map((cat, idx) => {
+                          const pct = (cat.value / maxVisitsVal) * 100;
+                          return (
+                            <div key={idx} className="space-y-1.5">
+                              <div className="flex justify-between font-mono text-[9px] uppercase tracking-wider text-neutral-400">
+                                <span>{cat.label}</span>
+                                <span className="font-bold text-neutral-200">{cat.value} explorer{cat.value !== 1 ? 's' : ''}</span>
+                              </div>
+                              <div className="h-2.5 bg-neutral-900 border border-neutral-900 rounded-xs overflow-hidden">
+                                <div 
+                                  style={{ width: `${pct}%` }}
+                                  className={`h-full transition-all duration-700 rounded-r-xs ${cat.color}`}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Real-time Visitor Live Feed Feed */}
+                <div className="bg-neutral-950 border border-neutral-900 p-6 rounded-lg">
+                  <div className="border-b border-neutral-900 pb-4 mb-6">
+                    <h4 className="font-mono text-xs text-neo-gold uppercase tracking-widest font-bold flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#c3a05c] opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-neo-gold"></span>
+                      </span>
+                      Autonomous Visitor Live Interaction Feed
+                    </h4>
+                    <p className="font-mono text-[9px] text-neutral-500 uppercase mt-1">
+                      Direct raw real-time stream of visitor events, pages viewed, and timeline stay intervals
+                    </p>
+                  </div>
+
+                  {sessions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 border border-dashed border-neutral-900 rounded">
+                      <Users className="w-8 h-8 text-neutral-800 mb-3 animate-pulse" />
+                      <span className="font-mono text-xs text-neutral-500 uppercase tracking-wider">No visits recorded</span>
+                      <p className="font-mono text-[9px] text-neutral-600 uppercase max-w-xs text-center mt-1">
+                        Awaiting the initial guest visitor to enter the store encryption perimeter.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse font-mono text-[10px]">
+                        <thead>
+                          <tr className="border-b border-neutral-900 bg-neutral-950/70 uppercase text-[8px] text-neutral-500 font-bold">
+                            <th className="p-3 w-8">Status</th>
+                            <th className="p-3 w-32">Temporal Arrival</th>
+                            <th className="p-3 w-24 text-right">Stay Length</th>
+                            <th className="p-3 w-40">Device Signature</th>
+                            <th className="p-3">Navigation / Click Path Traversed</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-900/60 text-neutral-300">
+                          {sessions.map((sess, idx) => {
+                            const isLive = (Date.now() - new Date(sess.lastActiveTime).getTime()) < 60000;
+                            return (
+                              <tr key={idx} className="hover:bg-neutral-900/20 transition-colors">
+                                <td className="p-3">
+                                  <div className="flex justify-center">
+                                    {isLive ? (
+                                      <span className="relative flex h-2.5 w-2.5" title="Actively Viewing Right Now">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                      </span>
+                                    ) : (
+                                      <span className="h-2 w-2 rounded-full bg-neutral-800" title="Offline / Departed"></span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3 font-semibold text-neutral-300">
+                                  {formatVisitorArrivalTime(sess.startTime)}
+                                </td>
+                                <td className="p-3 text-right font-medium text-neutral-400">
+                                  {(() => {
+                                    const dur = sess.duration || 0;
+                                    if (dur < 60) return `${dur}s`;
+                                    const m = Math.floor(dur / 60);
+                                    const s = dur % 60;
+                                    return `${m}m ${s}s`;
+                                  })()}
+                                </td>
+                                <td className="p-3 text-neutral-500 uppercase tracking-wide">
+                                  {sess.userAgent || "Unknown Device"}
+                                </td>
+                                <td className="p-3">
+                                  {/* Beautiful flow visual representation for the clicked paths */}
+                                  <div className="flex flex-wrap items-center gap-1.5 py-1">
+                                    {Array.isArray(sess.pagesVisited) && sess.pagesVisited.map((p, pIdx) => (
+                                      <div key={pIdx} className="flex items-center gap-1.5">
+                                        <span className={`px-2 py-0.5 rounded-xs border text-[8px] uppercase tracking-wider font-semibold ${
+                                          p.startsWith("Product:") 
+                                            ? "bg-neutral-950 border-[#c3a05c]/30 text-neo-gold" 
+                                            : "bg-neutral-950/60 border-neutral-900 text-neutral-400"
+                                        }`}>
+                                          {p}
+                                        </span>
+                                        {pIdx < sess.pagesVisited.length - 1 && (
+                                          <span className="text-neutral-700 text-[10px] font-bold">→</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
