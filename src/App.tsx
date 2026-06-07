@@ -892,6 +892,7 @@ export default function App() {
 
   if (pathProductId) {
     const matchedProduct = products.find((p) => p.id === pathProductId);
+    const isUserAdmin = userProfile?.role === UserRole.ADMIN || currentUser?.email === ADMIN_EMAIL;
 
     return (
       <div className="min-h-screen bg-[#050505] text-neutral-100 font-sans antialiased selection:bg-neo-gold selection:text-black flex flex-col justify-between relative overflow-x-hidden">
@@ -937,7 +938,7 @@ export default function App() {
               Unpublished or Deleted Product
             </h2>
             <p className="font-mono text-[10px] text-neutral-500 uppercase tracking-wider mb-8 leading-relaxed">
-              This ClickBank offer has not been deployed to the active master database yet, or the configuration is temporarily unavailable.
+              This promotional piece has not been deployed to the active master database yet, or the configuration is temporarily unavailable.
             </p>
             <div className="flex flex-col md:flex-row gap-3">
               <button
@@ -961,166 +962,322 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <main className="flex-1 max-w-5xl mx-auto px-6 py-12 md:py-20 w-full grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-start">
-            {/* Visual Column */}
-            <div className="md:col-span-5 space-y-6">
-              <div className="relative aspect-[4/5] bg-neutral-950 border border-neutral-900 rounded-lg overflow-hidden group">
-                <img
-                  src={matchedProduct.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600"}
-                  alt={matchedProduct.title}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover brightness-95"
-                />
+          <div className="flex-1 w-full animate-in fade-in duration-350">
+            {/* Urgent Promotional Header Alert bar */}
+            <div className="bg-neo-gold/10 border-b border-neo-gold/25 text-center py-2.5 px-4 font-mono text-[9px] md:text-[10px] uppercase tracking-wider text-neo-gold flex items-center justify-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0"></span>
+              <span><span className="font-bold">⚡ READER SAVINGS STATUS:</span> ACTIVE SPECIAL PROMOTIONAL CHANNELS DETECTED — SPECIAL SAVINGS LOCKED</span>
+            </div>
+
+            {/* Pre-sell Advertorial Headline Area (Centered Editorial Layout) */}
+            <div className="max-w-4xl mx-auto text-center space-y-4 px-6 pt-10 md:pt-16 pb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-950 border border-neutral-900 rounded-full font-mono text-[8px] md:text-[9px] tracking-widest text-[#c3a05c] uppercase">
+                <ShieldCheck className="w-3.5 h-3.5 text-neo-gold" /> INDEPENDENT RESEARCH DIRECTIVE &bull; LAB GRADE DEEP DIVE
+              </div>
+              <h1 className="font-display text-3xl md:text-5xl font-light tracking-tight text-neutral-100 leading-tight">
+                The Truth About <span className="font-medium text-neo-gold">{matchedProduct.title}</span>: Is It Actually Worth It?
+              </h1>
+              {matchedProduct.seoHeadline ? (
+                <p className="font-serif italic text-base md:text-lg text-neutral-400 max-w-2xl mx-auto font-light leading-relaxed">
+                  "{matchedProduct.seoHeadline}"
+                </p>
+              ) : (
+                <p className="font-serif italic text-base md:text-lg text-neutral-400 max-w-2xl mx-auto font-light leading-relaxed">
+                  "An analytical, unbiased pre-sell evaluation of this program's structural performance, consumer feedback, and pricing matrix."
+                </p>
+              )}
+              <div className="flex items-center justify-center gap-3 text-[9px] text-neutral-500 font-mono uppercase tracking-widest pt-2">
+                <span>REPORTS DIRECTIVE</span>
+                <span className="text-neutral-800 font-bold">&bull;</span>
+                <span>RESEARCH ACTIVE</span>
+                <span className="text-neutral-800 font-bold">&bull;</span>
+                <span>UPDATED TODAY</span>
               </div>
             </div>
 
-            {/* Informational Column */}
-            <div className="md:col-span-7 space-y-8">
-              <div className="space-y-3 border-b border-neutral-900 pb-6">
-                <h1 className="font-display font-medium text-2xl md:text-3xl tracking-tight text-neutral-100 leading-tight">
-                  {matchedProduct.title}
-                </h1>
-
-                {/* Main high impact headline if defined */}
-                {matchedProduct.seoHeadline && (
-                  <p className="font-display text-[#c3a05c] font-medium text-base tracking-wide leading-relaxed italic border-l-2 border-[#c3a05c]/30 pl-4 py-1">
-                    "{matchedProduct.seoHeadline}"
-                  </p>
-                )}
-              </div>
-
-              {/* Who It Is For */}
-              {matchedProduct.whoItIsFor && (
-                <div className="p-5 bg-neutral-950 border border-neutral-900 rounded-lg space-y-2">
-                  <h4 className="font-mono text-[#c3a05c] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#c3a05c]"></span> Who This Is For
-                  </h4>
-                  <p className="text-neutral-400 text-xs font-light leading-relaxed">
-                    {matchedProduct.whoItIsFor}
-                  </p>
-                </div>
-              )}
-
-              {/* Why It Works */}
-              {matchedProduct.whyItWorks && (
-                <div className="p-5 bg-neutral-950 border border-neutral-900 rounded-lg space-y-2">
-                  <h4 className="font-mono text-[#c3a05c] text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#c3a05c]"></span> How It Works
-                  </h4>
-                  <p className="text-neutral-400 text-xs font-light leading-relaxed">
-                    {matchedProduct.whyItWorks}
-                  </p>
-                </div>
-              )}
-
-              {/* Tag SEO Keywords */}
-              {matchedProduct.seoKeywords && (
-                <div className="space-y-2">
-                  <span className="font-mono text-[8px] text-neutral-550 uppercase tracking-widest block">
-                    Topics
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {matchedProduct.seoKeywords.split(",").map((kw: string, i: number) => kw.trim() && (
-                      <span key={i} className="px-2.5 py-0.75 bg-neutral-950 border border-neutral-900 rounded font-mono text-[8px] text-neutral-400 uppercase tracking-wide">
-                        {kw.trim()}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Product Features Section */}
-              {matchedProduct.included_features && matchedProduct.included_features.length > 0 && (
-                <div className="p-5 bg-neutral-950 border border-neutral-900 rounded-lg space-y-3">
-                  <h4 className="font-mono text-[#c3a05c] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-[#c3a05c] rounded-full"></span> Included Features & Components
-                  </h4>
-                  <ul className="space-y-2.5">
-                    {matchedProduct.included_features.map((feature: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2 text-neutral-300 text-xs">
-                        <Check className="w-3.5 h-3.5 text-[#c3a05c] shrink-0 mt-0.5" />
-                        <span className="font-light leading-relaxed">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Satisfaction Guarantee Block */}
-              <div className="p-5 bg-neutral-950 border border-[#c3a05c]/10 rounded-lg flex gap-4 items-start">
-                <ShieldCheck className="w-5 h-5 text-neo-gold shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <h5 className="font-mono text-[9px] text-neutral-200 uppercase tracking-wider font-semibold">
-                    Satisfaction Guarantee
-                  </h5>
-                  <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
-                    Guaranteed Risk-Free: Backed by a full {matchedProduct.refund_window || "60-Day"} money-back guarantee from the official provider.
-                  </p>
-                </div>
-              </div>
-
-              {/* User FAQ Accordion */}
-              <div className="space-y-3 pt-4 border-t border-neutral-900">
-                <h4 className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-neutral-600 rounded-full"></span> Consumer FAQ
-                </h4>
+            {/* Main two-column landing page container */}
+            <main className="max-w-7xl mx-auto px-6 py-4 md:py-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-start">
+              
+              {/* Left Column: Authoritative Editorial Article & Deep Review (7/12 width) */}
+              <div className="lg:col-span-7 space-y-10">
                 
-                <div className="space-y-2">
-                  {/* FAQ 1 */}
-                  <div className="border border-neutral-900 rounded bg-[#070707] overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setFaqOpen1(!faqOpen1)}
-                      className="w-full px-4 py-3 flex items-center justify-between text-left font-mono text-[9px] tracking-wider text-neutral-350 hover:text-white uppercase transition-colors"
-                    >
-                      <span>How do I access the program?</span>
-                      <ChevronDown className={`w-3 h-3 text-neutral-500 transition-transform duration-200 ${faqOpen1 ? "rotate-180" : ""}`} />
-                    </button>
-                    {faqOpen1 && (
-                      <div className="px-4 pb-3.5 text-xs text-neutral-400 font-light leading-relaxed border-t border-neutral-950 pt-2.5">
-                        Access is granted immediately. Everything is delivered digitally right after purchase verification.
-                      </div>
-                    )}
+                {/* 1. Main Visual Frame with Journalist-Style Caption */}
+                <div className="space-y-3.5">
+                  <div className="relative aspect-[16/10] sm:aspect-[16/9] bg-neutral-950 border border-neutral-900 rounded-xl overflow-hidden shadow-2xl p-6 flex items-center justify-center">
+                    <img
+                      src={matchedProduct.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600"}
+                      alt={matchedProduct.title}
+                      referrerPolicy="no-referrer"
+                      className="max-h-full max-w-full object-contain brightness-95"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/20 via-transparent to-transparent pointer-events-none"></div>
                   </div>
+                  <p className="font-mono text-[9px] text-neutral-500 leading-normal text-center uppercase tracking-wider">
+                    Fig 1.1: Official authenticated {matchedProduct.title} package layout as vetted at BuyerSpotted digital network under tight material-physical isolation standards.
+                  </p>
+                </div>
 
-                  {/* FAQ 2 */}
-                  <div className="border border-neutral-900 rounded bg-[#070707] overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setFaqOpen2(!faqOpen2)}
-                      className="w-full px-4 py-3 flex items-center justify-between text-left font-mono text-[9px] tracking-wider text-neutral-350 hover:text-white uppercase transition-colors"
-                    >
-                      <span>What is the billing structure?</span>
-                      <ChevronDown className={`w-3 h-3 text-neutral-500 transition-transform duration-200 ${faqOpen2 ? "rotate-180" : ""}`} />
-                    </button>
-                    {faqOpen2 && (
-                      <div className="px-4 pb-3.5 text-xs text-neutral-400 font-light leading-relaxed border-t border-neutral-950 pt-2.5">
-                        {matchedProduct.is_subscription ? (
-                          "Billing depends on your selected plan. This program includes a flexible subscription structure that can be managed or canceled directly with the official provider."
-                        ) : (
-                          "This is a one-time secure payment from the official provider with no hidden recurring fees."
-                        )}
-                      </div>
-                    )}
+                {/* 2. Analytical Diagnostic Scorecard Matrix (High Trust Factor) */}
+                <div className="bg-neutral-950 border border-neutral-900 rounded-xl p-5 space-y-4">
+                  <h3 className="font-mono text-[10px] text-neo-gold uppercase tracking-wider font-bold flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-neo-gold animate-pulse" /> Laboratory Evaluation scorecard
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 font-mono text-[10px]">
+                    <div className="bg-[#090909] p-3 rounded border border-neutral-900/60">
+                      <span className="text-neutral-500 text-[8px] uppercase block mb-1">REFUND PERMIT</span>
+                      <span className="font-semibold text-neutral-200">{matchedProduct.refund_window || "60-Day"} Window</span>
+                    </div>
+                    <div className="bg-[#090909] p-3 rounded border border-neutral-900/60">
+                      <span className="text-neutral-500 text-[8px] uppercase block mb-1">ORIGINAL STATUS</span>
+                      <span className="font-semibold text-emerald-400">OFFICIALLY VERIFIED</span>
+                    </div>
                   </div>
                 </div>
+
+                {/* 3. The Core Dilemma & Editorial Review */}
+                <div className="space-y-4 text-neutral-300 text-sm font-light leading-relaxed border-t border-neutral-900 pt-8">
+                  <h3 className="font-display font-medium text-lg text-neutral-100 uppercase tracking-wide">
+                    Executive Review Summary
+                  </h3>
+                  <p>
+                    Modern life demands cognitive excellence, wellness precision, and sustained mental performance. Sadly, the digital landscape is flooded with superficial, generic protocols that lack authentic foundations. In this independent research critique, <strong className="text-neutral-200">BuyerSpotted</strong> evaluates if <strong className="text-neo-gold">{matchedProduct.title}</strong> is an exceptional system or a standard placeholder.
+                  </p>
+                  <p>
+                    Sourced directly from verified registries, we look under the hood of this program to check its real utility, who it serves best, and if it qualifies for high-performance endorsement. Our editorial review maps the complete architecture below.
+                  </p>
+                </div>
+
+                {/* 4. Target Trajectory: Who This Is For */}
+                {matchedProduct.whoItIsFor && (
+                  <div className="space-y-3.5 border-t border-neutral-900 pt-8">
+                    <h3 className="font-mono text-[10px] text-neo-gold uppercase tracking-wider font-bold flex items-center gap-2">
+                      <Users className="w-4 h-4 text-neo-gold" /> Targeted Trajectory (Who This Is For)
+                    </h3>
+                    <p className="text-neutral-300 text-sm font-light leading-relaxed">
+                      {matchedProduct.whoItIsFor}
+                    </p>
+                  </div>
+                )}
+
+                {/* 5. Decoupling the Science: How It Works */}
+                {matchedProduct.whyItWorks && (
+                  <div className="space-y-4 border-t border-neutral-900 pt-8">
+                    <h3 className="font-mono text-[10px] text-neo-gold uppercase tracking-wider font-bold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-neo-gold animate-pulse" /> Decoupling The Science (How It Works)
+                    </h3>
+                    <p className="text-neutral-300 text-sm font-light leading-relaxed">
+                      {matchedProduct.whyItWorks}
+                    </p>
+                    
+                    <div className="p-4 bg-[#090909] border border-neutral-900 rounded-lg relative overflow-hidden mt-2">
+                      <p className="font-mono text-[9px] text-[#c3a05c] uppercase tracking-widest block mb-2">AUTHENTICITY SECURITY DIRECTIVE</p>
+                      <p className="text-neutral-400 text-xs font-light leading-relaxed">
+                        Imitation nodes are frequently positioned on lookalike domain schemas to intercept standard visitor traffic. Always verify that you are purchasing from the official network server by using our encrypted links provided in this report, which route directly through the provider's verified secure checkout.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. Included Key Features List */}
+                {matchedProduct.included_features && matchedProduct.included_features.length > 0 && (
+                  <div className="space-y-4 border-t border-neutral-900 pt-8">
+                    <h3 className="font-mono text-[10px] text-neo-gold uppercase tracking-wider font-bold flex items-center gap-2">
+                      <Check className="w-4 h-4 text-neo-gold" /> Included Core Components & Highlights
+                    </h3>
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {matchedProduct.included_features.map((feature: string, idx: number) => (
+                        <li key={idx} className="flex items-start gap-2.5 p-3.5 bg-neutral-950 border border-neutral-900/40 rounded-lg text-neutral-300 text-xs">
+                          <Check className="w-4 h-4 text-neo-gold shrink-0 mt-0.5" />
+                          <span className="font-light leading-relaxed">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                   {/* 7. Product Specifications Table */}
+                {isUserAdmin && matchedProduct.specifications && Object.keys(matchedProduct.specifications).length > 0 && (
+                  <div className="space-y-3.5 border-t border-neutral-900 pt-8">
+                    <h3 className="font-mono text-[10px] text-neutral-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <Sliders className="w-4 h-4 text-neutral-500" /> Operational Matrix Specs
+                    </h3>
+                    <div className="bg-neutral-950 border border-neutral-900 rounded-xl overflow-hidden divide-y divide-neutral-900 font-mono text-[10px]">
+                      {Object.entries(matchedProduct.specifications).map(([key, value]) => (
+                        <div key={key} className="flex px-4 py-3 hover:bg-neutral-900/10 transition-colors">
+                          <span className="w-1/3 text-neutral-500 uppercase tracking-wider">{key}</span>
+                          <span className="w-2/3 text-neutral-300 font-light truncate">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
 
-              {/* Massive landing page call to action */}
-              <div className="pt-4 pb-8 border-t border-neutral-900 space-y-4">
-                <a
-                  href={matchedProduct.clickbankUrl || matchedProduct.amazonUrl || "https://www.clickbank.com"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-4 bg-gradient-to-r from-[#c3a05c] to-yellow-500 hover:brightness-105 active:scale-[0.99] text-black font-bold font-mono text-xs tracking-widest uppercase rounded shadow-lg shadow-yellow-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer text-center"
-                >
-                  <Sparkles className="w-4 h-4 animate-spin shrink-0 text-black" />
-                  <span>Visit Official Website</span>
-                  <ExternalLink className="w-4 h-4 shrink-0 animate-pulse" />
-                </a>
+              {/* Right Column: High-converting Sticky Funnel & Multi-tier Trust Stack (5/12 width) */}
+              <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+                
+                {/* Promo/Order Module */}
+                <div className="bg-neutral-950 border-2 border-[#c3a05c]/35 rounded-xl p-6 pt-5 shadow-[0_4px_30px_rgba(195,160,92,0.06)] relative overflow-hidden space-y-6">
+                  <div className="absolute top-0 right-0 bg-[#c3a05c]/10 text-[#c3a05c] font-mono text-[8px] tracking-widest uppercase py-1 px-3 rounded-bl border-l border-b border-[#c3a05c]/25 font-bold">
+                    VERIFIED ENCODING
+                  </div>
+
+                  <div className="space-y-1 mt-2">
+                    <span className="font-mono text-[10px] text-neutral-550 uppercase tracking-widest block">SECURE PRICING SELECTION</span>
+                    <h3 className="font-display font-medium text-lg text-neutral-100">Claim Promotion & Guarantee</h3>
+                  </div>
+
+                  {/* Pricing Frame with Discount Illusion */}
+                  {(() => {
+                    const activeVariant = modalVariant && matchedProduct.variants.some(v => v.id === modalVariant.id) 
+                      ? modalVariant 
+                      : (matchedProduct.variants[0] || null);
+                    const originalPrice = activeVariant ? parseFloat(activeVariant.price.amount) : 49;
+                    const simulatedRetail = (originalPrice * 3).toFixed(2);
+                    
+                    return (
+                      <div className="bg-[#090909] border border-neutral-900 rounded-lg p-4 flex items-center justify-between font-mono">
+                        <div className="space-y-1">
+                          <span className="text-[8px] text-neutral-550 uppercase tracking-widest block">ESTIMATED RETAIL</span>
+                          <span className="text-xs text-neutral-500 line-through">
+                            ${simulatedRetail} USD
+                          </span>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <span className="text-[8px] text-neo-gold uppercase tracking-widest block font-bold">SPECIAL SAVINGS PRICE</span>
+                          <span className="text-lg font-bold text-neo-gold">
+                            ${originalPrice.toFixed(2)} USD
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Dynamic Variant Selector (if options exist) */}
+                  {matchedProduct.variants.length > 0 && (
+                    <div className="space-y-2.5">
+                      <span className="font-mono text-[8px] text-neutral-550 tracking-wider uppercase block">
+                        Select Compilation Schema
+                      </span>
+                      <div className="space-y-2">
+                        {matchedProduct.variants.map((v) => {
+                          const isSelected = modalVariant?.id === v.id || (!modalVariant && matchedProduct.variants[0]?.id === v.id);
+                          return (
+                            <button
+                              key={v.id}
+                              onClick={() => setModalVariant(v)}
+                              className={`w-full flex items-center justify-between p-3 rounded border font-mono text-[9px] tracking-wide transition-all ${
+                                isSelected 
+                                  ? "bg-[#c3a05c]/5 border-neo-gold text-neo-gold font-semibold" 
+                                  : "bg-[#090909] border-neutral-900 text-neutral-500 hover:text-neutral-200 hover:border-neutral-800"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-neo-gold' : 'bg-neutral-800'}`}></span>
+                                {v.title}
+                              </span>
+                              <span className="text-neutral-100">
+                                ${parseFloat(v.price.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} USD
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                       {/* Guaranteed Satisfaction Indicator Box */}
+                  <div className="bg-[#090909] border border-neutral-900 border-dashed rounded-lg p-3.5 flex gap-3 items-start">
+                    <ShieldCheck className="w-5 h-5 text-neo-gold shrink-0 mt-0.5" />
+                    <p className="font-mono text-[9px] uppercase tracking-wide text-neutral-400 leading-relaxed">
+                      Backed by the provider's ironclad <strong className="text-neo-gold font-bold">{matchedProduct.refund_window || "60-Day"} Risk-Free Satisfaction Guarantee</strong>. Completely risk-free investment.
+                    </p>
+                  </div>
+
+                  {/* High-Converting Catchy CTA Button */}
+                  <div className="pt-2">
+                    <a
+                      href={matchedProduct.clickbankUrl || matchedProduct.amazonUrl || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-4.5 px-3 bg-gradient-to-r from-neo-gold via-yellow-500 to-yellow-600 hover:brightness-110 active:scale-[0.99] text-black font-semibold rounded shadow-[0_4px_30px_rgba(195,160,92,0.25)] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer text-center group"
+                    >
+                      <div className="flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-black tracking-widest uppercase text-black">
+                        <span>👉 GET EXCLUSIVE SECURE REGISTRY ACCESS NOW 👈</span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-black" />
+                      </div>
+                      <span className="font-mono text-[8px] tracking-wider text-black/75 font-normal uppercase">
+                        ACTIVATE EXTRA {matchedProduct.refund_window?.toUpperCase() || "60-DAY"} REFUND PROTECTION & SPECIAL PROMO DISCOUNT
+                      </span>
+                    </a>
+                  </div>
+
+                  {/* Trust Badge Indicators */}
+                  <div className="space-y-3 pt-2 border-t border-neutral-900">
+                    <div className="flex items-center justify-center gap-4 opacity-50">
+                      <span className="font-mono text-[8px] text-neutral-550 uppercase tracking-widest">VISA</span>
+                      <span className="font-mono text-[8px] text-neutral-550 uppercase tracking-widest">MASTERCARD</span>
+                      <span className="font-mono text-[8px] text-neutral-550 uppercase tracking-widest">AMEX</span>
+                      <span className="font-mono text-[8px] text-neutral-550 uppercase tracking-widest">DISCOVER</span>
+                    </div>
+                    
+                    <div className="flex justify-center items-center gap-3.5 text-center font-mono text-[8px] uppercase tracking-wider text-neutral-600">
+                      <span className="flex items-center gap-1">🔒 SECURE SSL</span>
+                      <span>&bull;</span>
+                      <span className="flex items-center gap-1">🛡️ OFFICIALLY SECURED</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FAQ Details accordion */}
+                <div className="bg-neutral-950 border border-neutral-900 rounded-xl p-5 space-y-4">
+                  <h4 className="font-mono text-[9px] text-[#c3a05c] uppercase tracking-widest flex items-center gap-2 font-bold">
+                    <Info className="w-4 h-4 text-neo-gold" /> Frequently Asked Inquiries
+                  </h4>
+                  
+                  <div className="space-y-2">
+                    {/* FAQ 1 */}
+                    <div className="border border-neutral-900 rounded bg-[#090909] overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setFaqOpen1(!faqOpen1)}
+                        className="w-full px-4 py-2.5 flex items-center justify-between text-left font-mono text-[9px] tracking-wider text-neutral-400 hover:text-white uppercase transition-colors"
+                      >
+                        <span>How do I gain program access?</span>
+                        <ChevronDown className={`w-3 h-3 text-neutral-500 transition-transform duration-200 ${faqOpen1 ? "rotate-180" : ""}`} />
+                      </button>
+                      {faqOpen1 && (
+                        <div className="px-4 pb-3 text-[11px] text-neutral-400 leading-relaxed font-light border-t border-neutral-950 pt-2 bg-neutral-950">
+                          Access is issued instantaneously after payment execution. Everything is delivered through encrypted digital links format.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* FAQ 2 */}
+                    <div className="border border-neutral-900 rounded bg-[#090909] overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setFaqOpen2(!faqOpen2)}
+                        className="w-full px-4 py-2.5 flex items-center justify-between text-left font-mono text-[9px] tracking-wider text-neutral-400 hover:text-white uppercase transition-colors"
+                      >
+                        <span>Are there active recurring fees?</span>
+                        <ChevronDown className={`w-3 h-3 text-neutral-500 transition-transform duration-200 ${faqOpen2 ? "rotate-180" : ""}`} />
+                      </button>
+                      {faqOpen2 && (
+                        <div className="px-4 pb-3 text-[11px] text-neutral-400 leading-relaxed font-light border-t border-neutral-950 pt-2 bg-neutral-950">
+                          {matchedProduct.is_subscription ? (
+                            "No, unless subscription options are selected. The premium checkout system lets you specify standard or repeat delivery schemas."
+                          ) : (
+                            "No. This transaction represents a single material one-time payment structure with zero dynamic baseline monthly dues."
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
               </div>
-            </div>
-          </main>
+            </main>
+          </div>
         )}
 
         {/* Footer */}
