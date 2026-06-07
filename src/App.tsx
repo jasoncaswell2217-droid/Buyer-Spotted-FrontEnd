@@ -163,6 +163,7 @@ export default function App() {
   const [filteredCategory, setFilteredCategory] = useState<string>("All");
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
 
   // Custom SPA Router state for dynamic /product/:id routing
   const [pathProductId, setPathProductId] = useState<string | null>(() => {
@@ -205,6 +206,8 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  const isCurrentUserAdmin = userProfile?.role === UserRole.ADMIN || currentUser?.email === ADMIN_EMAIL;
 
   // Administration View and ClickBank Form State
   const [isAdminViewActive, setIsAdminViewActive] = useState(false);
@@ -801,9 +804,31 @@ export default function App() {
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean))) as string[]];
 
   // Filtered list
-  const filteredProducts = filteredCategory === "All" 
-    ? products 
-    : products.filter((p) => p.category === filteredCategory);
+  const filteredProducts = (() => {
+    let list = filteredCategory === "All" 
+      ? products 
+      : products.filter((p) => p.category === filteredCategory);
+
+    if (selectedGoal) {
+      const g = selectedGoal.toLowerCase();
+      let keywords: string[] = [];
+      if (g === "brain") {
+        keywords = ["brain", "mind", "nootropic", "focus", "memory", "cognit", "astro", "moon", "billionaire", "neuro"];
+      } else if (g === "sleep") {
+        keywords = ["sleep", "rest", "pillow", "foam", "derila", "bed"];
+      } else if (g === "energy") {
+        keywords = ["energy", "weight", "fit", "healthy", "flora", "digest", "metabol", "stamina", "alpilean", "vision"];
+      } else if (g === "longevity") {
+        keywords = ["longevity", "cell", "vitality", "anti-aging", "vision", "health", "life"];
+      }
+
+      list = list.filter(p => {
+        const text = `${p.title} ${p.description} ${p.category} ${p.seoKeywords} ${p.whoItIsFor || ""}`.toLowerCase();
+        return keywords.some(k => text.includes(k));
+      });
+    }
+    return list;
+  })();
 
   /**
    * Navigates to the designated ClickBank Hoplink redirect, or ClickBank homepage as fallback
@@ -1513,16 +1538,18 @@ export default function App() {
             )}
 
             {/* SpottedAI Advisor trigger */}
-            <button 
-              onClick={() => setIsChatOpen(!isChatOpen)}
-              className="relative p-2.5 bg-neutral-950 border border-neutral-800 hover:border-neo-gold rounded-md transition-all group"
-              title="Query SpottedAI Concierge"
-              id="ai-trigger-btn"
-            >
-              <MessageCircle className="w-4 h-4 text-neutral-400 group-hover:text-neo-gold transition-colors" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-neo-gold animate-ping"></span>
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-neo-gold"></span>
-            </button>
+            {isCurrentUserAdmin && (
+              <button 
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className="relative p-2.5 bg-neutral-950 border border-neutral-800 hover:border-neo-gold rounded-md transition-all group"
+                title="Query SpottedAI Concierge"
+                id="ai-trigger-btn"
+              >
+                <MessageCircle className="w-4 h-4 text-neutral-400 group-hover:text-neo-gold transition-colors" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-neo-gold animate-ping"></span>
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-neo-gold"></span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -2548,33 +2575,136 @@ export default function App() {
           </section>
         ) : (
           <>
-            <section className="mb-12 md:mb-20 overflow-hidden relative border border-neutral-900 rounded-xl bg-gradient-to-br from-neutral-950 to-[#0c0c0c] p-8 md:p-14">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-zinc-900/20 rounded-full blur-3xl -z-10"></div>
-              <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-stone-900/10 rounded-full blur-3xl -z-10"></div>
+            <section className="mb-12 md:mb-16 overflow-hidden relative border border-neutral-900 rounded-xl bg-gradient-to-br from-[#0a0a0a] via-neutral-950 to-[#0e0e0e] p-8 md:p-14 shadow-2xl">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-neo-gold/5 rounded-full blur-3xl -z-10 animate-pulse"></div>
+              <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-neutral-900/40 rounded-full blur-3xl -z-10"></div>
               
-              <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded-full font-mono text-[9px] tracking-widest text-[#c3a05c] uppercase mb-5">
-                  <Sparkles className="w-3 h-3 text-neo-gold" /> Isolated Performance Standards
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-900 border border-neutral-800 rounded-full font-mono text-[9px] tracking-widest text-[#c3a05c] uppercase mb-5">
+                  <Sparkles className="w-3 h-3 text-neo-gold" /> Curated Life & Performance Essentials
                 </div>
                 
-                <h2 className="font-display text-3xl md:text-5xl font-light tracking-tight text-neutral-100 leading-tight mb-4">
-                  Tactile Precision.<br className="hidden md:inline" /> 
-                  <span className="font-medium text-neo-gold">Zero Distraction.</span>
+                <h2 className="font-display text-4xl md:text-6xl font-extralight tracking-tight text-neutral-100 leading-tight mb-5">
+                  The Pursuit of <br />
+                  <span className="font-semibold bg-gradient-to-r from-[#c3a05c] via-yellow-500 to-amber-200 bg-clip-text text-transparent">Peak Performance.</span>
                 </h2>
                 
-                <p className="text-sm md:text-base text-neutral-400 font-light leading-relaxed mb-8">
-                  BuyerSpotted deploys agentic research pipelines to isolate, verify, and index high-performance digital systems and wellness technologies. Unbiased analysis. Zero distraction.
+                <p className="text-sm md:text-lg text-neutral-400 font-light leading-relaxed mb-8 max-w-xl">
+                  We explore, analyze, and review elite wellness breakthroughs and mental performance systems. No sales pitches, no jargon—just independent honest reviews of best-in-class solutions.
                 </p>
 
                 <div className="flex flex-wrap gap-4">
                   <a 
                     href="#catalog-view" 
-                    className="glow-btn flex items-center gap-2 px-5 py-3 bg-neo-gold hover:bg-yellow-600 text-[#050505] font-mono text-[11px] font-bold tracking-widest uppercase rounded-sm transition-all text-center"
+                    className="glow-btn flex items-center gap-2 px-6 py-3.5 bg-neo-gold hover:bg-yellow-650 text-black font-mono text-[11px] font-bold tracking-widest uppercase rounded shadow-lg transition-all"
                   >
-                    EXPLORE ACTIVE VAULT <ArrowUpRight className="w-3.5 h-3.5" />
+                    Browse Recommendations <ArrowUpRight className="w-4 h-4" />
                   </a>
+                  {isCurrentUserAdmin && (
+                    <button 
+                      onClick={() => setIsChatOpen(true)}
+                      className="flex items-center gap-2 px-6 py-3.5 border border-neutral-800 hover:border-neo-gold text-neutral-300 hover:text-neo-gold font-mono text-[11px] font-bold tracking-widest uppercase rounded transition-all cursor-pointer"
+                    >
+                      Consult AI Guide <MessageCircle className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
+            </section>
+
+            {/* Interactive Goal-Finder Matrix (High Conversion Booster) */}
+            <section className="mb-14 bg-neutral-950 border border-neutral-900 rounded-xl p-6 md:p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neutral-900 via-[#c3a05c]/30 to-neutral-900" />
+              <div className="mb-6">
+                <span className="font-mono text-[9px] text-[#c3a05c] tracking-widest uppercase block mb-1">INTERACTIVE DISCOVERY INTEGRATION</span>
+                <h3 className="font-display text-xl font-medium text-neutral-200">What are you optimizing today?</h3>
+                <p className="text-xs text-neutral-500 font-light mt-1">Select a core milestone objective. Our curation engine will isolate the highest performing reviews for your path.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Option 1: Brain */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedGoal(selectedGoal === "brain" ? null : "brain")}
+                  className={`p-5 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between h-36 cursor-pointer ${
+                    selectedGoal === "brain"
+                      ? "border-neo-gold bg-[#c3a05c]/5 text-neo-gold ring-1 ring-neo-gold"
+                      : "border-neutral-900 hover:border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  <div>
+                    <span className="text-lg mb-2 block">🧠</span>
+                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Cognitive Fitness</h4>
+                  </div>
+                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Boost brainpower, memory recall, active focus, and mental flow states.</p>
+                </button>
+
+                {/* Option 2: Sleep */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedGoal(selectedGoal === "sleep" ? null : "sleep")}
+                  className={`p-5 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between h-36 cursor-pointer ${
+                    selectedGoal === "sleep"
+                      ? "border-neo-gold bg-[#c3a05c]/5 text-neo-gold ring-1 ring-neo-gold"
+                      : "border-neutral-900 hover:border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  <div>
+                    <span className="text-lg mb-2 block">💤</span>
+                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Sleep & Restoration</h4>
+                  </div>
+                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Reduce sleep latency, enhance recovery parameters, and deeply restore biological cells.</p>
+                </button>
+
+                {/* Option 3: Energy */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedGoal(selectedGoal === "energy" ? null : "energy")}
+                  className={`p-5 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between h-36 cursor-pointer ${
+                    selectedGoal === "energy"
+                      ? "border-neo-gold bg-[#c3a05c]/5 text-neo-gold ring-1 ring-neo-gold"
+                      : "border-neutral-900 hover:border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  <div>
+                    <span className="text-lg mb-2 block">⚡</span>
+                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Natural Energy</h4>
+                  </div>
+                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Sustain daily cellular vigor, optimize metabolic rate, and eliminate fatigue spikes.</p>
+                </button>
+
+                {/* Option 4: Longevity */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedGoal(selectedGoal === "longevity" ? null : "longevity")}
+                  className={`p-5 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between h-36 cursor-pointer ${
+                    selectedGoal === "longevity"
+                      ? "border-neo-gold bg-[#c3a05c]/5 text-neo-gold ring-1 ring-neo-gold"
+                      : "border-neutral-900 hover:border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  <div>
+                    <span className="text-lg mb-2 block">🌱</span>
+                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Longevity & Cells</h4>
+                  </div>
+                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Guard systemic biological structures, support longevity markers, and shield cellular health.</p>
+                </button>
+              </div>
+
+              {selectedGoal && (
+                <div className="mt-4 flex items-center justify-between border-t border-neutral-900 pt-4 animate-in fade-in slide-in-from-top-1">
+                  <span className="font-mono text-[10px] text-neo-gold uppercase tracking-wider flex items-center gap-1.5 font-semibold">
+                    <Check className="w-3.5 h-3.5 shrink-0" /> Target focus set to: {selectedGoal === "brain" ? "Cognitive Fitness" : selectedGoal === "sleep" ? "Sleep & Restoration" : selectedGoal === "energy" ? "Natural Energy" : "Longevity & Cells"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGoal(null)}
+                    className="font-mono text-[9px] text-neutral-550 uppercase tracking-widest hover:text-neutral-200 underline underline-offset-4 cursor-pointer"
+                  >
+                    Reset Optimization Target (Show All)
+                  </button>
+                </div>
+              )}
             </section>
 
             {/* Catalog Control Header */}
@@ -2582,10 +2712,10 @@ export default function App() {
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-neutral-900 pb-6">
                 <div>
                   <h3 className="font-display font-semibold text-lg md:text-xl tracking-wider uppercase text-neutral-200">
-                    Verified Utility Vault
+                    The Curations Catalog
                   </h3>
                   <p className="font-mono text-xs text-neutral-500 mt-1">
-                    Displaying {filteredProducts.length} elite material elements
+                    Displaying {filteredProducts.length} elite recommended elements
                   </p>
                 </div>
 
@@ -2621,17 +2751,14 @@ export default function App() {
                 </div>
               ) : filteredProducts.length === 0 ? (
                 <div className="text-center py-24 border border-dashed border-neutral-900 rounded-lg">
-                  <Sliders className="w-8 h-8 text-neutral-600 mx-auto mb-4" />
-                  <p className="font-mono text-[10px] tracking-widest text-[#c3a05c] uppercase">Curated vault empty</p>
-                  <p className="font-mono text-[9px] text-neutral-500 mt-2 uppercase">Custom dynamic pieces will reside here upon Administrator deposit.</p>
+                  <Sliders className="w-8 h-8 text-neutral-600 mx-auto mb-4 animate-pulse" />
+                  <p className="font-mono text-[10px] tracking-widest text-[#c3a05c] uppercase">No curations matched</p>
+                  <p className="font-mono text-[9px] text-neutral-500 mt-2 uppercase">Try resetting your optimization goal filter above to browse other dynamic pieces.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredProducts.map((p, idx) => {
                     const primaryImage = p.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600";
-                    const secondaryImage = idx === 0
-                      ? "/src/assets/images/futuristic_phone_brain_1780703733009.png"
-                      : (p.images[1]?.url || primaryImage);
                     
                     return (
                       <motion.article
@@ -2651,14 +2778,24 @@ export default function App() {
                                src={primaryImage} 
                                alt={p.title}
                                referrerPolicy="no-referrer"
-                               className="w-full h-full object-contain brightness-95 contrast-105"
+                               className="w-full h-full object-contain brightness-95 hover:scale-105 transition-transform duration-500"
                             />
                           </div>
 
+                          {/* Category Badge */}
+                          <span className="font-mono text-[8px] uppercase tracking-wider text-neo-gold font-bold block mb-1">
+                            {p.category === "ClickBank Curated" ? "COGNITIVE RESTORATION" : p.category.toUpperCase()}
+                          </span>
+
                           {/* Title */}
-                          <h4 className="font-display font-medium text-base text-neutral-100 group-hover:text-neo-gold transition-colors truncate mb-4">
+                          <h4 className="font-display font-medium text-base text-neutral-100 group-hover:text-neo-gold transition-colors truncate mb-2">
                             {p.title}
                           </h4>
+
+                          {/* Quick intro summary */}
+                          <p className="text-[11px] text-neutral-400 font-light line-clamp-2 leading-relaxed mb-4">
+                            {p.description || "Expert curated piece exploring systemic health optimization and practical lifestyle integration techniques."}
+                          </p>
                         </div>
 
                         {/* READ REVIEW Button */}
@@ -2677,40 +2814,40 @@ export default function App() {
               )}
             </section>
 
-            {/* Why BuyerSpotted section */}
+            {/* Why BuyerSpotted section (Humanized & Professional Trust Stack) */}
             <section className="mb-20 border-t border-neutral-900 pt-16 grid grid-cols-1 md:grid-cols-3 gap-10">
               <div className="flex gap-4">
-                <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
-                  <Cpu className="w-5 h-5" />
+                <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit animate-pulse">
+                  <Cpu className="w-5 h-5 text-neo-gold" />
                 </div>
                 <div>
-                  <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Computational Sourcing</h5>
+                  <h5 className="font-display font-semibold text-sm text-neutral-100 uppercase tracking-wider mb-2">Empathetic Neutrality</h5>
                   <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                    Every listed element must satisfy physical-material isolation criteria before deployment to our shop registry.
+                    We do not accept corporate sponsorships, backdoor bribes, or advertising placements. Every review is independent, analytical, and honest.
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-4">
                 <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
-                  <Layers className="w-5 h-5" />
+                  <Layers className="w-5 h-5 text-neo-gold" />
                 </div>
                 <div>
-                  <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Hand-Checked Verification</h5>
+                  <h5 className="font-display font-semibold text-sm text-neutral-100 uppercase tracking-wider mb-2">Definitive Verifications</h5>
                   <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                    Direct cryptographic keys securely paired over local silicon layouts. We never permit batch-produced consumer slop.
+                    Our team evaluates material ingredients, consumer feedback structures, and real satisfaction ratios over weeks before filing a final grade.
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-4">
                 <div className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg text-neo-gold h-fit">
-                  <X className="w-5 h-5 rotate-45" />
+                  <X className="w-5 h-5 rotate-45 text-neo-gold" />
                 </div>
                 <div>
-                  <h5 className="font-display font-medium text-sm text-neutral-100 uppercase tracking-widest mb-2">Direct Channel Access</h5>
+                  <h5 className="font-display font-semibold text-sm text-neutral-100 uppercase tracking-wider mb-2">Direct Secure Gateways</h5>
                   <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                    Seamless integration with premium search registries. Instantly view component availability and place queries securely.
+                    Avoid clone domains, fake sites, and online copycats. We provide encrypted links that connect you securely to the official product warehouses.
                   </p>
                 </div>
               </div>
@@ -2728,8 +2865,12 @@ export default function App() {
           </div>
           <div className="flex items-center gap-4">
             <span className="hover:text-neutral-300 cursor-pointer">ISOLATION CHARTERS</span>
-            <span>&bull;</span>
-            <span className="hover:text-neutral-300 cursor-pointer text-neo-gold" onClick={() => setIsChatOpen(true)}>CONSULT SPOTTEDAI</span>
+            {isCurrentUserAdmin && (
+              <>
+                <span>&bull;</span>
+                <span className="hover:text-neutral-300 cursor-pointer text-neo-gold" onClick={() => setIsChatOpen(true)}>CONSULT SPOTTEDAI</span>
+              </>
+            )}
           </div>
         </div>
       </footer>
@@ -2862,7 +3003,7 @@ export default function App() {
 
       {/* 2. SPOTTEDAI CONCIERGE DRAWER (GEMINI-POWERED) */}
       <AnimatePresence>
-        {isChatOpen && (
+        {isCurrentUserAdmin && isChatOpen && (
           <>
             {/* Backdrop overlay */}
             <motion.div 
