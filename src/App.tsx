@@ -165,23 +165,49 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
 
-  // Custom SPA Router state for dynamic /product/:id routing
-  const [pathProductId, setPathProductId] = useState<string | null>(() => {
-    const match = window.location.pathname.match(/^\/product\/([^/]+)/);
-    return match ? match[1] : null;
+  // Helper: Convert title into a lowercase, hyphenated slug
+  const getProductSlug = (title: string): string => {
+    return title
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // remove special characters except spaces and hyphens
+      .replace(/[\s_]+/g, "-")   // replace spaces and underscores with hyphens
+      .replace(/-+/g, "-");      // collapse multiple consecutive hyphens
+  };
+
+  // Custom SPA Router state for dynamic /:productSlug routing
+  const [pathProductSlug, setPathProductSlug] = useState<string | null>(() => {
+    const matchProduct = window.location.pathname.match(/^\/product\/([^/]+)/);
+    if (matchProduct) return matchProduct[1];
+
+    const rootMatch = window.location.pathname.match(/^\/([^/]+)/);
+    if (rootMatch && rootMatch[1] !== "admin" && rootMatch[1] !== "api") {
+      return rootMatch[1];
+    }
+    return null;
   });
 
   useEffect(() => {
     const handlePopState = () => {
-      const match = window.location.pathname.match(/^\/product\/([^/]+)/);
-      setPathProductId(match ? match[1] : null);
+      const matchProduct = window.location.pathname.match(/^\/product\/([^/]+)/);
+      if (matchProduct) {
+        setPathProductSlug(matchProduct[1]);
+        return;
+      }
+      const rootMatch = window.location.pathname.match(/^\/([^/]+)/);
+      if (rootMatch && rootMatch[1] !== "admin" && rootMatch[1] !== "api") {
+        setPathProductSlug(rootMatch[1]);
+        return;
+      }
+      setPathProductSlug(null);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  const navigateToProduct = (id: string) => {
-    window.history.pushState({}, "", `/product/${id}`);
+  const navigateToProduct = (title: string) => {
+    const slug = getProductSlug(title);
+    window.history.pushState({}, "", `/${slug}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
@@ -915,8 +941,8 @@ export default function App() {
     return acc + (parseFloat(item.variant.price.amount) * item.quantity);
   }, 0);
 
-  if (pathProductId) {
-    const matchedProduct = products.find((p) => p.id === pathProductId);
+  if (pathProductSlug) {
+    const matchedProduct = products.find((p) => getProductSlug(p.title) === pathProductSlug);
     const isUserAdmin = userProfile?.role === UserRole.ADMIN || currentUser?.email === ADMIN_EMAIL;
 
     return (
@@ -1303,7 +1329,7 @@ export default function App() {
         <footer className="border-t border-neutral-900 py-6 px-6 md:px-12 bg-neutral-950/40 text-center font-mono text-[9px] text-neutral-550 uppercase tracking-wider mt-auto">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <span>© 2026 BuyerSpotted Digital Curation Network. All rights reserved.</span>
-            <span>Ref: {pathProductId ? pathProductId.slice(0, 8).toUpperCase() : ""}</span>
+            <span>Ref: {pathProductSlug ? pathProductSlug.toUpperCase() : ""}</span>
           </div>
         </footer>
       </div>
@@ -2763,7 +2789,7 @@ export default function App() {
                         viewport={{ once: true }}
                         transition={{ duration: 0.35 }}
                         className="group flex flex-col justify-between bg-neutral-950 border border-neutral-900 rounded-lg p-5 hover:border-neutral-800 transition-all cursor-pointer relative"
-                        onClick={() => navigateToProduct(p.id)}
+                        onClick={() => navigateToProduct(p.title)}
                       >
                         <div>
                           {/* Image Frame */}
@@ -3319,7 +3345,7 @@ export default function App() {
                       <button
                         onClick={() => {
                           if (selectedProduct) {
-                            navigateToProduct(selectedProduct.id);
+                            navigateToProduct(selectedProduct.title);
                             setSelectedProduct(null); // Close modal
                           }
                         }}
