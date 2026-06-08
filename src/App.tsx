@@ -1154,24 +1154,18 @@ export default function App() {
 
                   {/* Pricing Frame with Discount Illusion */}
                   {(() => {
-                    const activeVariant = modalVariant && matchedProduct.variants.some(v => v.id === modalVariant.id) 
-                      ? modalVariant 
-                      : (matchedProduct.variants[0] || null);
-                    const originalPrice = activeVariant ? parseFloat(activeVariant.price.amount) : 49;
-                    const simulatedRetail = (originalPrice * 3).toFixed(2);
-                    
                     return (
                       <div className="bg-[#090909] border border-neutral-900 rounded-lg p-4 flex items-center justify-between font-mono">
                         <div className="space-y-1">
                           <span className="text-[8px] text-neutral-550 uppercase tracking-widest block">ESTIMATED RETAIL</span>
-                          <span className="text-xs text-neutral-500 line-through">
-                            ${simulatedRetail} USD
+                          <span className="text-xs text-neutral-500/70">
+                            Pricing Varies
                           </span>
                         </div>
                         <div className="text-right space-y-1">
-                          <span className="text-[8px] text-neo-gold uppercase tracking-widest block font-bold">SPECIAL SAVINGS PRICE</span>
-                          <span className="text-lg font-bold text-neo-gold">
-                            ${originalPrice.toFixed(2)} USD
+                          <span className="text-[8px] text-neo-gold uppercase tracking-widest block font-bold font-semibold">SPECIAL SAVINGS PRICE</span>
+                          <span className="text-xs font-bold text-neo-gold uppercase tracking-wider">
+                            Special Discount Active
                           </span>
                         </div>
                       </div>
@@ -1201,8 +1195,8 @@ export default function App() {
                                 <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-neo-gold' : 'bg-neutral-800'}`}></span>
                                 {v.title}
                               </span>
-                              <span className="text-neutral-100">
-                                ${parseFloat(v.price.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} USD
+                              <span className="text-neo-gold font-bold uppercase text-[8px] tracking-wider">
+                                View Deal
                               </span>
                             </button>
                           );
@@ -1227,11 +1221,11 @@ export default function App() {
                       className="w-full py-4.5 px-3 bg-gradient-to-r from-neo-gold via-yellow-500 to-yellow-600 hover:brightness-110 active:scale-[0.99] text-black font-semibold rounded shadow-[0_4px_30px_rgba(195,160,92,0.25)] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer text-center group"
                     >
                       <div className="flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-black tracking-widest uppercase text-black">
-                        <span>👉 GET EXCLUSIVE SECURE REGISTRY ACCESS NOW 👈</span>
+                        <span>👉 VIEW LATEST DEALS & OFFICIAL AVAILABILITY 👈</span>
                         <ExternalLink className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-black" />
                       </div>
-                      <span className="font-mono text-[8px] tracking-wider text-black/75 font-normal uppercase">
-                        ACTIVATE EXTRA {matchedProduct.refund_window?.toUpperCase() || "60-DAY"} REFUND PROTECTION & SPECIAL PROMO DISCOUNT
+                      <span className="font-mono text-[8px] tracking-wider text-black/75 font-medium uppercase mt-1">
+                        ACTIVATE EXTRA {matchedProduct.refund_window?.toUpperCase() || "60-DAY"} REFUND PROTECTION & CHOOSE SPECIAL MANUFACTURER DEALS
                       </span>
                     </a>
                   </div>
