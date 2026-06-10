@@ -397,6 +397,7 @@ export default function App() {
 
   // Blog categories state loaded from Firestore
   const [blogCategories, setBlogCategories] = useState<string[]>([
+    "General",
     "Health & Wellness",
     "DIY & Home",
     "Product Reviews",
