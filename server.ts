@@ -529,6 +529,55 @@ app.post("/api/gemini-chat", async (req, res) => {
 });
 
 /**
+ * SEO XML Sitemap Router
+ */
+app.get("/sitemap.xml", (req, res) => {
+  res.header("Content-Type", "application/xml");
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Core Routes -->
+  <url>
+    <loc>https://buyerspotted.com/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://buyerspotted.com/blog</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <!-- Curated High-Gravity Tech Vault Offers -->
+  <url>
+    <loc>https://buyerspotted.com/products/solis-cordless-red-light-belt</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://buyerspotted.com/products/reedle-100-dermal-essence</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://buyerspotted.com/products/joola-hyperion-cfs-paddle</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://buyerspotted.com/products/govee-permanent-outdoor-lights</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://buyerspotted.com/products/sony-srs-ns7-neckband-speaker</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>`;
+  res.send(sitemap);
+});
+
+/**
  * Client development static server & Vite live middleware configuration
  */
 async function startServer() {

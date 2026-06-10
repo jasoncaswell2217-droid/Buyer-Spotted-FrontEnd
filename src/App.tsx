@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent, ReactNode } from "react";
 import { 
   ShoppingBag, 
   MessageCircle, 
@@ -24,12 +24,13 @@ import {
   ChevronDown,
   BarChart3,
   Clock,
-  Users
+  Users,
+  Zap
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { ShopifyProduct, ShopifyVariant, CartItem, ChatMessage } from "./types";
+import { ShopifyProduct, ShopifyVariant, CartItem, ChatMessage, BlogPost } from "./types";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { auth, db, signInWithGoogle, logOutUser, syncUserProfile, UserRole, UserProfile, handleFirestoreError, OperationType } from "./firebase";
 
 const mapFirestoreProductToShopify = (id: string, docData: any): ShopifyProduct => {
@@ -61,7 +62,7 @@ const mapFirestoreProductToShopify = (id: string, docData: any): ShopifyProduct 
       },
       availableForSale: true
     }],
-    category: "ClickBank Curated",
+    category: docData.category || "ClickBank Curated",
     specifications: {
       "ClickBank Vendor": cbVendor || "N/A",
       "Affiliate ID": cbAffiliate || "N/A",
@@ -84,6 +85,68 @@ const mapFirestoreProductToShopify = (id: string, docData: any): ShopifyProduct 
     is_subscription: docData.is_subscription === true,
     refund_window: docData.refund_window || "60-Day",
     included_features: Array.isArray(docData.included_features) ? docData.included_features : []
+  };
+};
+
+const determineCategory = (title: string): string => {
+  const t = (title || "").toLowerCase();
+  if (t.includes("sleep") || t.includes("rest") || t.includes("dream")) {
+    return "Sleep & Restoration";
+  }
+  if (t.includes("astrology") || t.includes("moon") || t.includes("reading") || t.includes("manifest")) {
+    return "Astrology & Spirituality";
+  }
+  if (t.includes("woodworking") || t.includes("plan") || t.includes("diy") || t.includes("craft")) {
+    return "Crafts & DIY";
+  }
+  if (t.includes("sugar") || t.includes("defend") || t.includes("metabol") || t.includes("tea") || t.includes("coffee") || t.includes("belly") || t.includes("weight") || t.includes("diet") || t.includes("smoothie") || t.includes("liver") || t.includes("fat") || t.includes("joint") || t.includes("prostate") || t.includes("hear") || t.includes("ear") || t.includes("tinnitus") || t.includes("skin") || t.includes("gastro") || t.includes("radiance")) {
+    return "Health & Wellness";
+  }
+  return "ClickBank Curated";
+};
+
+const getCategoryDetails = (catName: string) => {
+  const norm = (catName || "").trim().toLowerCase();
+  
+  let accent = "#c3a05c"; // default elegant gold
+  let desc = `Curated specialized choices and analytical profiles focusing on advanced results in the ${catName} domain.`;
+  let image = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600";
+  
+  if (norm.includes("clickbank") || norm.includes("curated")) {
+    accent = "#c3a05c"; // gold
+    desc = "Expertly selected and curated marketplace products prioritized for high performance and campaign success.";
+    image = "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600";
+  } else if (norm.includes("sleep") || norm.includes("rest") || norm.includes("night") || norm.includes("cognitive") || norm.includes("dream")) {
+    accent = "#5c8dc3"; // blue
+    desc = "Expertly curated programs, formulas, and resources focusing on restoring nocturnal cycles and mental focus.";
+    image = "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600";
+  } else if (norm.includes("bio") || norm.includes("organic") || norm.includes("formulation") || norm.includes("health") || norm.includes("wellness") || norm.includes("metabolic") || norm.includes("fat") || norm.includes("weight")) {
+    accent = "#68c35c"; // green
+    desc = "Verified organic formulas, advanced health supplements, and physical wellness protocols.";
+    image = "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=600";
+  } else if (norm.includes("craft") || norm.includes("diy") || norm.includes("wood") || norm.includes("woodworking")) {
+    accent = "#c3835c"; // bronze / orange
+    desc = "Step-by-step instructional guides, digital templates, and blueprints for physical arts and crafts.";
+    image = "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600";
+  } else if (norm.includes("neural") || norm.includes("mind") || norm.includes("manifest") || norm.includes("astrology") || norm.includes("spirituality") || norm.includes("moon")) {
+    accent = "#9b5cc3"; // purple
+    desc = "Cognitive development guides, astrology readings, mindset methodologies, and mental balance tools.";
+    image = "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600";
+  } else {
+    // Generate a quick deterministic accent color based on catName string hash to keep them unique and styled!
+    let hash = 0;
+    for (let i = 0; i < catName.length; i++) {
+        hash = catName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colors = ["#c3a05c", "#5c8dc3", "#c3655c", "#9b5cc3", "#68c35c", "#c3835c", "#5cc3b9"];
+    accent = colors[Math.abs(hash) % colors.length];
+  }
+
+  return {
+    title: catName,
+    desc,
+    accent,
+    image
   };
 };
 
@@ -129,6 +192,38 @@ const getClickBankHoplinkUrl = (p: any): string => {
   return `https://wolfjay26.${inferredVendor}.hop.clickbank.net`;
 };
 
+const getProductAestheticDescription = (p: ShopifyProduct): string => {
+  const titleLower = p.title.toLowerCase();
+  if (titleLower.includes("java burn")) {
+    return "A flavorless daily morning coffee additive engineered to systematically ignite resting metabolic rates.";
+  }
+  if (titleLower.includes("brain wave") || titleLower.includes("billionaire brain")) {
+    return "An acoustic neural-frequency directive designed to target and realign cognitive abundance factors.";
+  }
+  if (titleLower.includes("sugar defender")) {
+    return "A premium glycemic balancing catalyst curated to support daily cellular energy equilibrium and clear brain fog.";
+  }
+  if (titleLower.includes("puravive")) {
+    return "An exotic metabolic activation key targeting brown adipose tissues to support systematic body optimization.";
+  }
+  if (titleLower.includes("joint genesis")) {
+    return "An advanced joint matrix targeting synovial fluid health to support raw mobility and tissue preservation.";
+  }
+  if (titleLower.includes("sleep") || titleLower.includes("yu sleep")) {
+    return "A specialized nocturnal recovery blend synthesized to initiate deep restful REM cycles and cellular restoration.";
+  }
+  if (titleLower.includes("woodworking") || titleLower.includes("tedswoodworking")) {
+    return "A premium manual matrix containing 16,000 highly precise blueprint schematics for professional and home design.";
+  }
+  if (titleLower.includes("moon reading") || titleLower.includes("astrology") || titleLower.includes("wealth secret")) {
+    return "A personalized mental tuning blueprint and auditory alignment sequence tailored for cognitive abundance.";
+  }
+  
+  return (p.description || "An elite, scientifically structural formulation tailored for comprehensive biological performance.")
+    .replace(/ClickBank|VSL|hoplink|affiliate|Gravity|funnel|VSL strategy|Campaign/gi, "Vetted")
+    .trim();
+};
+
 const ADMIN_EMAIL = "jasoncaswell2217@gmail.com";
 
 const formatVisitorArrivalTime = (isoString: string): string => {
@@ -157,13 +252,248 @@ const formatVisitorArrivalTime = (isoString: string): string => {
   }
 };
 
+// SEO-optimized safe URL slug generator
+const slugify = (text: string): string => {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "") // remove non-alphanumeric characters
+    .replace(/\s+/g, "-")         // replace spaces with hyphens
+    .replace(/-+/g, "-")          // collapse multiple consecutive hyphens
+    .replace(/^-+|-+$/g, "");     // trim hyphens from the start and end
+};
+
+// Safe, high-performance inline markdown parsing helper
+const parseInlineMarkdown = (text: string): ReactNode => {
+  if (!text) return "";
+  
+  // Safe HTML escape to prevent XSS while allowing designated formatting
+  let escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Re-allow underline tags specifically
+  escaped = escaped.replace(/&lt;u&gt;/g, "<u>").replace(/&lt;\/u&gt;/g, "</u>");
+
+  // Replace Markdown syntaxes with safe semantic HTML tags
+  escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong class='font-bold text-neutral-100'>$1</strong>");
+  escaped = escaped.replace(/\*(.*?)\*/g, "<em class='italic font-medium'>$1</em>");
+  escaped = escaped.replace(/~~(.*?)~~/g, "<del class='line-through text-neutral-500'>$1</del>");
+  escaped = escaped.replace(/`(.*?)`/g, '<code class="font-mono bg-neutral-900 border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] text-neo-gold font-semibold">$1</code>');
+  escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-neo-gold hover:text-yellow-405 hover:underline font-semibold transition-colors" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  return <span dangerouslySetInnerHTML={{ __html: escaped }} />;
+};
+
+// Complete, semantic markdown element renderer for blog articles (re-used for preview & final pages)
+const renderArticleLine = (
+  line: string, 
+  bIdx: number, 
+  products: ShopifyProduct[], 
+  featuredProductId?: string, 
+  blogFormCtaText?: string, 
+  blogFormCtaLink?: string
+): ReactNode => {
+  const trimmed = line.trim();
+  
+  if (trimmed === "[Affiliate CTA Callout Block]") {
+    // Look up featured product
+    const tiedProd = products.find(p => p.id === featuredProductId);
+    if (!tiedProd) {
+      return (
+        <div key={bIdx} className="my-6 p-4 border border-dashed border-neutral-800 text-center text-[10px] text-[#c3a05c] font-mono uppercase bg-[#070707] rounded-lg">
+          [Affiliate Callout: Product reference slot has not been link-bounded in the metadata panel]
+        </div>
+      );
+    }
+    const prodPrice = tiedProd.priceMin ? parseFloat(tiedProd.priceMin.amount) : 0;
+    const tiedProdImg = tiedProd.images && tiedProd.images[0] ? tiedProd.images[0].url : "";
+    return (
+      <div key={bIdx} className="my-8 bg-[#090909]/80 border border-[#c3a05c]/30 rounded-lg p-5 md:p-6 relative overflow-hidden group shadow-xl transition-all duration-300 hover:border-[#c3a05c]/60">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-neo-gold/5 blur-3xl rounded-full"></div>
+        
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {tiedProdImg && (
+            <img 
+              src={tiedProdImg} 
+              alt={tiedProd.title} 
+              className="w-16 h-16 object-cover rounded-md border border-neutral-800 bg-black shadow-inner"
+              referrerPolicy="no-referrer"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <span className="block font-mono text-[8px] text-neo-gold uppercase tracking-widest font-bold">EXPERT VAULT RECOMMENDED SOLUTION</span>
+            <h4 className="font-display font-bold text-sm text-neutral-100 uppercase mt-0.5 tracking-tight group-hover:text-neo-gold transition-colors">{tiedProd.title}</h4>
+            <p className="font-sans text-[10px] text-neutral-400 mt-1 line-clamp-2 leading-relaxed">
+              {tiedProd.seoHeadline || tiedProd.description}
+            </p>
+          </div>
+        </div>
+        
+        <div className="mt-4 pt-4 border-t border-neutral-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="block font-sans font-bold text-[#c3a05c] text-xs uppercase">{tiedProd.conversionLabel || `$${prodPrice.toFixed(2)} Target Program Value`}</span>
+            <span className="block font-mono text-[7px] text-neutral-500 uppercase mt-0.5">PURCHASE PLATFORM GUARANTEED • 100% SECURE SHIPMENT</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const link = blogFormCtaLink || tiedProd.amazonUrl || tiedProd.clickbankUrl;
+              if (link) window.open(link, "_blank", "noopener,noreferrer");
+            }}
+            className="px-5 py-2.5 bg-neo-gold text-black font-semibold uppercase font-mono text-[9px] tracking-widest rounded-sm hover:bg-yellow-500 transition-all cursor-pointer flex items-center justify-center gap-1 text-center shadow-lg hover:shadow-neo-gold/10"
+          >
+            {blogFormCtaText || "Access Offer Details"} →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (trimmed.startsWith("# ")) {
+    return <h2 key={bIdx} className="font-display font-semibold text-lg md:text-xl text-neutral-100 uppercase tracking-widest mt-8 mb-4 border-l-2 border-neo-gold pl-3">{parseInlineMarkdown(trimmed.slice(2))}</h2>;
+  }
+  if (trimmed.startsWith("## ")) {
+    return <h3 key={bIdx} className="font-sans font-semibold text-sm text-neo-gold uppercase tracking-wider mt-6 mb-2">{parseInlineMarkdown(trimmed.slice(3))}</h3>;
+  }
+  if (trimmed.startsWith("### ")) {
+    return <h4 key={bIdx} className="font-sans font-semibold text-xs text-neutral-200 uppercase tracking-wide mt-4 mb-2">{parseInlineMarkdown(trimmed.slice(4))}</h4>;
+  }
+  if (trimmed.startsWith("> ")) {
+    return <blockquote key={bIdx} className="border-l-2 border-neo-gold pl-4 py-2.5 my-6 text-neutral-400 italic bg-[#0d0d0d] rounded-r text-[13px]">{parseInlineMarkdown(trimmed.slice(2))}</blockquote>;
+  }
+  if (trimmed.startsWith("- ")) {
+    return <li key={bIdx} className="list-disc ml-6 text-neutral-300 font-light mb-1.5">{parseInlineMarkdown(trimmed.slice(2))}</li>;
+  }
+  if (/^\d+\.\s/.test(trimmed)) {
+    const listText = trimmed.replace(/^\d+\.\s/, "");
+    return <li key={bIdx} className="list-decimal ml-6 text-neutral-300 font-light mb-1.5">{parseInlineMarkdown(listText)}</li>;
+  }
+  if (trimmed === "---") {
+    return <hr key={bIdx} className="border-neutral-900 my-8" />;
+  }
+  if (trimmed.startsWith("![") && trimmed.includes("](") && trimmed.endsWith(")")) {
+    const alt = trimmed.substring(2, trimmed.indexOf("]Custom("));
+    // Safe parse URLs
+    const urlStart = trimmed.indexOf("](") + 2;
+    const urlEnd = trimmed.length - 1;
+    const src = trimmed.substring(urlStart, urlEnd);
+    return (
+      <div key={bIdx} className="my-5 text-center">
+        <img src={src} alt={alt} className="max-h-[350px] mx-auto rounded border border-neutral-900 shadow-lg object-cover" referrerPolicy="no-referrer" />
+        {alt && <span className="block text-[9px] font-mono text-neutral-500 uppercase mt-1">{alt}</span>}
+      </div>
+    );
+  }
+
+  return <p key={bIdx} className="mb-4 leading-relaxed font-light text-neutral-305 text-sm md:text-base">{parseInlineMarkdown(line)}</p>;
+};
+
 export default function App() {
   // State elements
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [activeBlogCategoryFilter, setActiveBlogCategoryFilter] = useState("All");
+
+  // Blog categories state loaded from Firestore
+  const [blogCategories, setBlogCategories] = useState<string[]>([
+    "Health & Wellness",
+    "DIY & Home",
+    "Product Reviews",
+    "Affiliate Marketing"
+  ]);
+  const [newBlogCategory, setNewBlogCategory] = useState("");
+  const [isAddingNewBlogCategory, setIsAddingNewBlogCategory] = useState(false);
+  const [blogCatError, setBlogCatError] = useState("");
+  
+  // Blog editor administration states
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+  const [isBlogFormOpen, setIsBlogFormOpen] = useState(false);
+  const [blogFormTitle, setBlogFormTitle] = useState("");
+  const [blogFormSlug, setBlogFormSlug] = useState("");
+  const [blogFormContent, setBlogFormContent] = useState("");
+  const [blogFormCategory, setBlogFormCategory] = useState("Health & Wellness");
+  const [blogFormStatus, setBlogFormStatus] = useState<'draft' | 'published'>("published");
+  const [blogFormVisibility, setBlogFormVisibility] = useState<'public' | 'admins' | 'members'>("public");
+  const [blogFormSeoKeywords, setBlogFormSeoKeywords] = useState("");
+  const [blogFormCtaText, setBlogFormCtaText] = useState("Check Discount Price");
+  const [blogFormCtaLink, setBlogFormCtaLink] = useState("");
+  const [blogFormImageUrl, setBlogFormImageUrl] = useState("");
+  const [blogFormAuthorName, setBlogFormAuthorName] = useState("BuyerSpotted");
+  const [blogFormFeaturedProduct, setBlogFormFeaturedProduct] = useState("");
+  const [isBlogSaving, setIsBlogSaving] = useState(false);
+  const [blogIncludeProduct, setBlogIncludeProduct] = useState(false);
+  const [editorViewMode, setEditorViewMode] = useState<"edit" | "preview" | "split">("edit");
+
+  const insertMarkdownTag = (type: string) => {
+    const textarea = document.getElementById("blog-content-textarea") as HTMLTextAreaElement;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+    let replacement = "";
+    switch(type) {
+      case "h1":
+        replacement = `\n# ${selectedText || "Heading 1"}\n`;
+        break;
+      case "h2":
+        replacement = `\n## ${selectedText || "Heading 2"}\n`;
+        break;
+      case "h3":
+        replacement = `\n### ${selectedText || "Heading 3"}\n`;
+        break;
+      case "bold":
+        replacement = `**${selectedText || "bold text"}**`;
+        break;
+      case "italic":
+        replacement = `*${selectedText || "italic text"}*`;
+        break;
+      case "underline":
+        replacement = `<u>${selectedText || "underlined text"}</u>`;
+        break;
+      case "strikethrough":
+        replacement = `~~${selectedText || "strikethrough text"}~~`;
+        break;
+      case "blockquote":
+        replacement = `\n> ${selectedText || "Quote Block"}\n`;
+        break;
+      case "bullet":
+        replacement = `\n- ${selectedText || "Bulleted list item"}\n`;
+        break;
+      case "numbered":
+        replacement = `\n1. ${selectedText || "Numbered list item"}\n`;
+        break;
+      case "divider":
+        replacement = `\n---\n`;
+        break;
+      case "link":
+        replacement = `[${selectedText || "Link text"}](https://example.com)`;
+        break;
+      case "image":
+        replacement = `![${selectedText || "Image Alt"}](https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=605)`;
+        break;
+      case "affiliate-box":
+        replacement = `\n[Affiliate CTA Callout Block]\n`;
+        break;
+      default:
+        // Handle direct emoji insertion or arbitrary text
+        replacement = type;
+    }
+    const newValue = text.substring(0, start) + replacement + text.substring(end);
+    setBlogFormContent(newValue);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = start + replacement.length;
+      textarea.selectionEnd = start + replacement.length;
+    }, 10);
+  };
+
   const [filteredCategory, setFilteredCategory] = useState<string>("All");
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   // Helper: Convert title into a lowercase, hyphenated slug
   const getProductSlug = (title: string): string => {
@@ -175,31 +505,68 @@ export default function App() {
       .replace(/-+/g, "-");      // collapse multiple consecutive hyphens
   };
 
-  // Custom SPA Router state for dynamic /:productSlug routing
+  // Custom SPA Router state for dynamic /:productSlug and /category/:category routing
+  const [activeCategoryPage, setActiveCategoryPage] = useState<string | null>(() => {
+    const matchCategory = window.location.pathname.match(/^\/category\/([^/]+)/);
+    if (matchCategory) return decodeURIComponent(matchCategory[1]);
+    return null;
+  });
+
   const [pathProductSlug, setPathProductSlug] = useState<string | null>(() => {
     const matchProduct = window.location.pathname.match(/^\/product\/([^/]+)/);
     if (matchProduct) return matchProduct[1];
 
     const rootMatch = window.location.pathname.match(/^\/([^/]+)/);
-    if (rootMatch && rootMatch[1] !== "admin" && rootMatch[1] !== "api") {
+    if (rootMatch && rootMatch[1] !== "admin" && rootMatch[1] !== "api" && rootMatch[1] !== "category" && rootMatch[1] !== "blog") {
       return rootMatch[1];
     }
+    return null;
+  });
+
+  const [isBlogPageActive, setIsBlogPageActive] = useState<boolean>(() => {
+    return window.location.pathname === "/blog" || window.location.pathname.startsWith("/blog/");
+  });
+
+  const [blogPostSlug, setBlogPostSlug] = useState<string | null>(() => {
+    const matchBlog = window.location.pathname.match(/^\/blog\/([^/]+)/);
+    if (matchBlog) return matchBlog[1];
     return null;
   });
 
   useEffect(() => {
     const handlePopState = () => {
       const matchProduct = window.location.pathname.match(/^\/product\/([^/]+)/);
+      const matchCategory = window.location.pathname.match(/^\/category\/([^/]+)/);
+      const matchBlog = window.location.pathname.match(/^\/blog\/([^/]+)/);
+      const isBlog = window.location.pathname === "/blog" || window.location.pathname.startsWith("/blog/");
+
+      setIsBlogPageActive(isBlog);
+      setBlogPostSlug(matchBlog ? matchBlog[1] : null);
+
+      if (isBlog) {
+        setPathProductSlug(null);
+        setActiveCategoryPage(null);
+        return;
+      }
+
       if (matchProduct) {
         setPathProductSlug(matchProduct[1]);
+        setActiveCategoryPage(null);
+        return;
+      }
+      if (matchCategory) {
+        setPathProductSlug(null);
+        setActiveCategoryPage(decodeURIComponent(matchCategory[1]));
         return;
       }
       const rootMatch = window.location.pathname.match(/^\/([^/]+)/);
-      if (rootMatch && rootMatch[1] !== "admin" && rootMatch[1] !== "api") {
+      if (rootMatch && rootMatch[1] !== "admin" && rootMatch[1] !== "api" && rootMatch[1] !== "category" && rootMatch[1] !== "blog") {
         setPathProductSlug(rootMatch[1]);
+        setActiveCategoryPage(null);
         return;
       }
       setPathProductSlug(null);
+      setActiveCategoryPage(null);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -208,6 +575,21 @@ export default function App() {
   const navigateToProduct = (title: string) => {
     const slug = getProductSlug(title);
     window.history.pushState({}, "", `/${slug}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const navigateToCategory = (catName: string) => {
+    window.history.pushState({}, "", `/category/${encodeURIComponent(catName)}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const navigateToBlog = () => {
+    window.history.pushState({}, "", "/blog");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const navigateToBlogPost = (slug: string) => {
+    window.history.pushState({}, "", `/blog/${slug}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
@@ -237,7 +619,7 @@ export default function App() {
 
   // Administration View and ClickBank Form State
   const [isAdminViewActive, setIsAdminViewActive] = useState(false);
-  const [adminTab, setAdminTab] = useState<"vault" | "warehouse" | "settings" | "analytics">("vault");
+  const [adminTab, setAdminTab] = useState<"vault" | "warehouse" | "settings" | "analytics" | "blog">("vault");
   const [siteSettings, setSiteSettings] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [isSettingsSaving, setIsSettingsSaving] = useState(false);
   const [scannedProducts, setScannedProducts] = useState<any[]>([]);
@@ -264,6 +646,7 @@ export default function App() {
   const [formSuccess, setFormSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [formCategory, setFormCategory] = useState("ClickBank Curated");
 
   // Analytics Tracking & Admin Dashboard states
   const [sessions, setSessions] = useState<any[]>([]);
@@ -366,6 +749,61 @@ export default function App() {
     };
   }, [userProfile]);
 
+  // Dynamic real-time blog database feed (supports guest published filtering vs. admin raw view)
+  useEffect(() => {
+    let unsubscribeBlog: (() => void) | null = null;
+    const isUserAdmin = userProfile?.role === UserRole.ADMIN || currentUser?.email === ADMIN_EMAIL;
+
+    let blogQ;
+    if (isUserAdmin) {
+      blogQ = query(collection(db, "blogPosts"));
+    } else {
+      blogQ = query(collection(db, "blogPosts"), where("status", "==", "published"));
+    }
+
+    unsubscribeBlog = onSnapshot(blogQ, (snapshot) => {
+      const fbBlogPosts = snapshot.docs.map(docSnap => {
+        const d = docSnap.data();
+        return {
+          id: docSnap.id,
+          title: d.title || "",
+          slug: d.slug || "",
+          content: d.content || "",
+          category: d.category || "Health & Wellness",
+          status: d.status || "draft",
+          visibility: d.visibility || "public",
+          seoKeywords: d.seoKeywords || "",
+          readingTime: typeof d.readingTime === 'number' ? d.readingTime : 5,
+          ctaText: d.ctaText || "Check Discount Price",
+          ctaLink: d.ctaLink || "",
+          imageUrl: d.imageUrl || "",
+          authorName: d.authorName || "BuyerSpotted Editor",
+          viewCount: typeof d.viewCount === 'number' ? d.viewCount : 0,
+          featuredProductId: d.featuredProductId || "",
+          createdAt: d.createdAt ? (d.createdAt.seconds ? new Date(d.createdAt.seconds * 1000).toISOString() : String(d.createdAt)) : new Date().toISOString(),
+          updatedAt: d.updatedAt ? (d.updatedAt.seconds ? new Date(d.updatedAt.seconds * 1000).toISOString() : String(d.updatedAt)) : new Date().toISOString(),
+        } as BlogPost;
+      });
+
+      // Sort client-side to prevent missing Firestore index errors
+      fbBlogPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setBlogPosts(fbBlogPosts);
+    }, (err) => {
+      console.error("Firestore loading blog posts error:", err);
+      try {
+        handleFirestoreError(err, OperationType.LIST, "blogPosts");
+      } catch (logErr) {
+        // Suppress to prevent unhandled promise rejection warnings in UI loggers, but error is already reported
+      }
+      setBlogPosts([]);
+    });
+
+    return () => {
+      if (unsubscribeBlog) unsubscribeBlog();
+    };
+  }, [userProfile, currentUser]);
+
   // Deletion tracking state
   const [activeDeleteId, setActiveDeleteId] = useState<string | null>(null);
 
@@ -380,6 +818,27 @@ export default function App() {
   ]);
   const [userInput, setUserInput] = useState("");
   const [isAskingAI, setIsAskingAI] = useState(false);
+
+  // Load blog categories from database
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "blogCategories"), (snapshot) => {
+      const dbCats = snapshot.docs.map(doc => doc.data().name as string).filter(Boolean);
+      const defaultCats = [
+        "Health & Wellness",
+        "DIY & Home",
+        "Product Reviews",
+        "Affiliate Marketing"
+      ];
+      const merged = Array.from(new Set([
+        ...defaultCats,
+        ...dbCats
+      ]));
+      setBlogCategories(merged);
+    }, (err) => {
+      console.error("Firestore loading blog categories error:", err);
+    });
+    return () => unsub();
+  }, []);
   
   // Active product modal state
   const [modalVariant, setModalVariant] = useState<ShopifyVariant | null>(null);
@@ -406,6 +865,58 @@ export default function App() {
       setProducts(fbProducts);
       setIsLoading(false);
       setIsLiveConnection(true);
+
+      // Auto-seeding when the products collection is empty
+      if (snapshot.empty && localStorage.getItem("buyerspotted_seeded_v3") !== "true") {
+        localStorage.setItem("buyerspotted_seeded_v3", "true");
+        (async () => {
+          try {
+            console.log("Empty Firestore database. Seeding 20 high-performance products...");
+            const res = await fetch("/data/products.json");
+            if (!res.ok) {
+              throw new Error("HTTP fetching products.json returned " + res.status);
+            }
+            const dataList = await res.json();
+            if (Array.isArray(dataList)) {
+              for (const p of dataList) {
+                const rawPrice = p.avg_per_conversion ? String(p.avg_per_conversion).replace(/[^0-9.]/g, "") : "49.00";
+                const priceVal = parseFloat(rawPrice) || 49.00;
+                
+                const cbVendorValue = (p.title || "").toLowerCase().replace(/[^a-z]/g, "").slice(0, 8) || "vendor";
+                const forcedAffiliate = "wolfjay26";
+                const rawAffiliateUrl = `https://${forcedAffiliate}.${cbVendorValue}.hop.clickbank.net`;
+
+                const determinedCat = determineCategory(p.title);
+                
+                await addDoc(collection(db, "products"), {
+                  title: p.title || "",
+                  description: `Expert ClickBank campaign leveraging a high-converting ${p.funnel_angle || "direct response"} marketing strategy.`,
+                  price: priceVal,
+                  cbVendor: cbVendorValue,
+                  cbAffiliate: forcedAffiliate,
+                  gravity: parseFloat(p.gravity_score) || 0,
+                  conversionLabel: p.avg_per_conversion ? `${p.avg_per_conversion} Average $/Conversion` : `$${priceVal.toFixed(2)} Expected Payout`,
+                  imageUrl: getProductPlaceholderImage(p.title),
+                  affiliateUrl: p.affiliate_tools_url || rawAffiliateUrl,
+                  seoHeadline: p.seo_headline || "",
+                  whoItIsFor: p.who_it_is_for || "",
+                  whyItWorks: p.why_it_works || "",
+                  seoKeywords: p.seo_keywords || [],
+                  category: determinedCat,
+                  is_subscription: p.is_subscription === true,
+                  refund_window: p.refund_window || "60-Day",
+                  included_features: p.included_features || [],
+                  createdAt: serverTimestamp()
+                });
+              }
+              console.log("Products seeding successfully deployed to Firestore.");
+            }
+          } catch (seedErr) {
+            console.error("Auto-seeding exception:", seedErr);
+            localStorage.removeItem("buyerspotted_seeded_v3");
+          }
+        })();
+      }
     }, (err) => {
       console.error("Firestore loading error:", err);
       setProducts([]);
@@ -481,6 +992,145 @@ export default function App() {
       }
     };
   }, []);
+
+  // Dynamic SEO Title, Description, and Structured JSON-LD Schema injector
+  useEffect(() => {
+    let title = "BuyerSpotted | Curated Luxury Tech Vault - High-Gravity Deals";
+    let description = "Discover and secure under-the-radar luxury products, dermal essences, sport equipment, and wellness systems reviewed by experts.";
+    let keywords = "clickbank gravity, premium reviews, wellness biohacks, laser red light therapy, dermal micro-spicules";
+    let schemaData: any = null;
+
+    if (isAdminViewActive) {
+      title = "Administration Control Dashboard | BuyerSpotted Vault";
+      description = "Administrative override pane to secure transit records, sync clickbank campaigns, and manage products.";
+    } else if (isBlogPageActive) {
+      if (blogPostSlug) {
+        const foundPost = blogPosts.find(p => p.slug === blogPostSlug);
+        if (foundPost) {
+          title = `${foundPost.title} | BuyerSpotted Curation Desk`;
+          description = foundPost.seoKeywords || foundPost.content.replace(/[#\*`_>\[\]\-\n]/g, " ").substring(0, 155).trim() + "...";
+          keywords = foundPost.seoKeywords || keywords;
+          
+          // Check if there is an affiliate product tied to this post to generate nested Product schema
+          const linkedId = foundPost.featuredProductId;
+          const associatedProd = products.find(p => p.id === linkedId);
+          let nestedProductObj: any = undefined;
+          
+          if (associatedProd) {
+            nestedProductObj = {
+              "@type": "Product",
+              "name": associatedProd.title,
+              "image": associatedProd.images?.[0]?.url || "https://i.ibb.co/CpY1r3Dg/logo.jpg",
+              "description": associatedProd.description,
+              "offers": {
+                "@type": "Offer",
+                "price": associatedProd.priceMin ? parseFloat(associatedProd.priceMin.amount) : 0,
+                "priceCurrency": associatedProd.priceMin?.currencyCode || "USD",
+                "availability": "https://schema.org/InStock",
+                "url": associatedProd.clickbankUrl || associatedProd.amazonUrl || window.location.href
+              }
+            };
+          }
+
+          schemaData = {
+            "@context": "https://schema.org",
+            "@type": "BlogPosting",
+            "headline": foundPost.title,
+            "image": foundPost.imageUrl || "https://i.ibb.co/CpY1r3Dg/logo.jpg",
+            "author": {
+              "@type": "Person",
+              "name": foundPost.authorName || "BuyerSpotted Desk"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "BuyerSpotted",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://i.ibb.co/CpY1r3Dg/logo.jpg"
+              }
+            },
+            "description": description,
+            "articleSection": foundPost.category || "Affiliate Marketing",
+            "about": nestedProductObj
+          };
+        } else {
+          title = "Expert Affiliate Article | BuyerSpotted";
+        }
+      } else {
+        title = "ClickBank Curation & Expert Guides Feed | BuyerSpotted Blog";
+        description = "Expert analytical guides and deep buyer reviews tracking the absolute best high-conversion products on the market.";
+        
+        schemaData = {
+          "@context": "https://schema.org",
+          "@type": "Blog",
+          "name": "BuyerSpotted Curation Feed",
+          "description": description,
+          "publisher": {
+            "@type": "Organization",
+            "name": "BuyerSpotted"
+          }
+        };
+      }
+    } else if (pathProductSlug) {
+      const foundProduct = products.find(p => getProductSlug(p.title) === pathProductSlug);
+      if (foundProduct) {
+        title = `${foundProduct.title} - Expert Review & VIP Deals | BuyerSpotted`;
+        description = foundProduct.description.substring(0, 155).trim() + "...";
+        const priceVal = foundProduct.priceMin ? parseFloat(foundProduct.priceMin.amount) : 0;
+        
+        schemaData = {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": foundProduct.title,
+          "image": foundProduct.images?.[0]?.url || "https://i.ibb.co/CpY1r3Dg/logo.jpg",
+          "description": foundProduct.description,
+          "offers": {
+            "@type": "Offer",
+            "price": priceVal,
+            "priceCurrency": foundProduct.priceMin?.currencyCode || "USD",
+            "availability": "https://schema.org/InStock",
+            "url": foundProduct.amazonUrl || foundProduct.clickbankUrl || window.location.href
+          }
+        };
+      }
+    } else if (activeCategoryPage) {
+      title = `${activeCategoryPage} Premium Gear | BuyerSpotted Curated Collection`;
+      description = `Secure high-performance ${activeCategoryPage} deals vetted for structural elegance and material durability.`;
+    }
+
+    // Apply document title
+    document.title = title;
+
+    // Apply Meta Description
+    let metaDesc = document.querySelector('meta[name="description"]');
+    if (!metaDesc) {
+      metaDesc = document.createElement('meta');
+      metaDesc.setAttribute('name', 'description');
+      document.head.appendChild(metaDesc);
+    }
+    metaDesc.setAttribute('content', description);
+
+    // Apply Meta Keywords
+    let metaKeys = document.querySelector('meta[name="keywords"]');
+    if (!metaKeys) {
+      metaKeys = document.createElement('meta');
+      metaKeys.setAttribute('name', 'keywords');
+      document.head.appendChild(metaKeys);
+    }
+    metaKeys.setAttribute('content', keywords);
+
+    // Apply Schema JSON-LD Script
+    let schemaScript = document.getElementById("seo-schema") as HTMLScriptElement;
+    if (schemaScript) {
+      schemaScript.textContent = schemaData ? JSON.stringify(schemaData) : "";
+    } else if (schemaData) {
+      schemaScript = document.createElement('script');
+      schemaScript.id = 'seo-schema';
+      schemaScript.type = 'application/ld+json';
+      schemaScript.textContent = JSON.stringify(schemaData);
+      document.head.appendChild(schemaScript);
+    }
+  }, [isAdminViewActive, isBlogPageActive, blogPostSlug, pathProductSlug, activeCategoryPage, blogPosts, products]);
 
   // Sync cart with local storage
   const saveCartToStorage = (updatedCart: CartItem[]) => {
@@ -564,6 +1214,7 @@ export default function App() {
     setFormIsSubscription(p.is_subscription === true);
     setFormRefundWindow(p.refund_window || "60-Day");
     setFormIncludedFeatures(p.included_features ? p.included_features.join("\n") : "");
+    setFormCategory(p.category || "ClickBank Curated");
     setFormError("");
     setFormSuccess("");
 
@@ -640,6 +1291,7 @@ export default function App() {
     setFormIsSubscription(false);
     setFormRefundWindow("60-Day");
     setFormIncludedFeatures("");
+    setFormCategory("ClickBank Curated");
     setFormError("");
     setFormSuccess("");
     setEditingProductId(null);
@@ -713,7 +1365,8 @@ export default function App() {
           seoKeywords: formSeoKeywords.trim(),
           is_subscription: formIsSubscription,
           refund_window: formRefundWindow.trim() || "60-Day",
-          included_features: parsedIncludedFeatures
+          included_features: parsedIncludedFeatures,
+          category: formCategory.trim() || "ClickBank Curated"
         });
         setFormSuccess("ClickBank affiliate piece successfully updated!");
         setEditingProductId(null);
@@ -735,6 +1388,7 @@ export default function App() {
           is_subscription: formIsSubscription,
           refund_window: formRefundWindow.trim() || "60-Day",
           included_features: parsedIncludedFeatures,
+          category: formCategory.trim() || "ClickBank Curated",
           createdAt: serverTimestamp()
         });
         setFormSuccess("ClickBank affiliate piece successfully added to high-performance pipeline!");
@@ -755,6 +1409,7 @@ export default function App() {
       setFormIsSubscription(false);
       setFormRefundWindow("60-Day");
       setFormIncludedFeatures("");
+      setFormCategory("ClickBank Curated");
     } catch (err: any) {
       console.error("Save catalog element exception:", err);
       try {
@@ -779,6 +1434,172 @@ export default function App() {
       } catch (mappedErr: any) {
         setFormError(`Secure Deletion Lock: ${mappedErr.message}`);
       }
+    }
+  };
+
+  // Blog success and error notifications
+  const [blogSuccessMessage, setBlogSuccessMessage] = useState("");
+  const [blogErrorMessage, setBlogErrorMessage] = useState("");
+  const [blogConfirmDeleteId, setBlogConfirmDeleteId] = useState<string | null>(null);
+
+  // Blog Post Save and Update Handler
+  const handleSaveBlogPost = async (e: FormEvent) => {
+    e.preventDefault();
+    setBlogSuccessMessage("");
+    setBlogErrorMessage("");
+
+    if (!blogFormTitle.trim() || !blogFormContent.trim()) {
+      setBlogErrorMessage("Title and content are required.");
+      return;
+    }
+
+    setIsBlogSaving(true);
+    let targetSlug = blogFormSlug.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    if (!targetSlug) {
+      targetSlug = blogFormTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    }
+
+    // Auto calculate reading time: roughly 200 words per minute
+    const wordCount = blogFormContent.trim().split(/\s+/).length;
+    const computedReadingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+    const postPayload = {
+      title: blogFormTitle.trim(),
+      slug: targetSlug,
+      content: blogFormContent,
+      category: blogFormCategory,
+      status: blogFormStatus,
+      visibility: blogFormVisibility,
+      seoKeywords: blogFormSeoKeywords.trim(),
+      readingTime: computedReadingTime,
+      ctaText: blogIncludeProduct ? (blogFormCtaText.trim() || "Check Discount Price") : "",
+      ctaLink: blogIncludeProduct ? blogFormCtaLink.trim() : "",
+      imageUrl: blogFormImageUrl.trim() || "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600",
+      authorName: blogFormAuthorName.trim() || "BuyerSpotted Expert",
+      viewCount: editingPost ? editingPost.viewCount : 0,
+      featuredProductId: blogIncludeProduct ? blogFormFeaturedProduct : "",
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      if (editingPost) {
+        await updateDoc(doc(db, "blogPosts", editingPost.id), postPayload);
+        setBlogSuccessMessage("Affiliate review article successfully updated!");
+        setEditingPost(null);
+      } else {
+        await addDoc(collection(db, "blogPosts"), {
+          ...postPayload,
+          createdAt: serverTimestamp()
+        });
+        setBlogSuccessMessage("New epic review article added to pipeline!");
+      }
+      
+      setIsBlogFormOpen(false);
+      resetBlogForm();
+    } catch (err: any) {
+      console.error("Save blog post exception:", err);
+      try {
+        handleFirestoreError(err, editingPost ? OperationType.UPDATE : OperationType.CREATE, "blogPosts");
+      } catch (mappedErr: any) {
+        setBlogErrorMessage(`Security Lock: ${mappedErr.message}`);
+      }
+    } finally {
+      setIsBlogSaving(false);
+    }
+  };
+
+  const resetBlogForm = () => {
+    setBlogFormTitle("");
+    setBlogFormSlug("");
+    setBlogFormContent("");
+    setBlogFormCategory("Health & Wellness");
+    setBlogFormStatus("published");
+    setBlogFormVisibility("public");
+    setBlogFormSeoKeywords("");
+    setBlogFormCtaText("Check Discount Price");
+    setBlogFormCtaLink("");
+    setBlogFormImageUrl("");
+    setBlogFormAuthorName("BuyerSpotted");
+    setBlogFormFeaturedProduct("");
+    setBlogIncludeProduct(false);
+    setEditorViewMode("edit");
+  };
+
+  const handleEditBlogPost = (post: BlogPost) => {
+    setEditingPost(post);
+    setBlogFormTitle(post.title);
+    setBlogFormSlug(post.slug);
+    setBlogFormContent(post.content);
+    setBlogFormCategory(post.category);
+    setBlogFormStatus(post.status);
+    setBlogFormVisibility(post.visibility);
+    setBlogFormSeoKeywords(post.seoKeywords || "");
+    setBlogFormCtaText(post.ctaText || "Check Discount Price");
+    setBlogFormCtaLink(post.ctaLink || "");
+    setBlogFormImageUrl(post.imageUrl || "");
+    setBlogFormAuthorName(post.authorName || "BuyerSpotted");
+    setBlogFormFeaturedProduct(post.featuredProductId || "");
+    setBlogIncludeProduct(!!post.featuredProductId);
+    setEditorViewMode("edit");
+    setIsBlogFormOpen(true);
+    setBlogSuccessMessage("");
+    setBlogErrorMessage("");
+  };
+
+  const handleCreateBlogCategory = async (catName: string) => {
+    const trimmed = catName.trim();
+    if (!trimmed) return;
+    
+    // Check duplicate
+    if (blogCategories.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      setBlogCatError("Category already exists.");
+      return;
+    }
+    
+    try {
+      setBlogCatError("");
+      const docId = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      await setDoc(doc(db, "blogCategories", docId), {
+        name: trimmed,
+        createdAt: serverTimestamp()
+      });
+      setBlogFormCategory(trimmed);
+      setNewBlogCategory("");
+      setIsAddingNewBlogCategory(false);
+    } catch (err: any) {
+      console.error("Create blog category error:", err);
+      try {
+        handleFirestoreError(err, OperationType.CREATE, `blogCategories/${trimmed}`);
+      } catch (mappedErr: any) {
+        setBlogCatError(`Security Lock: ${mappedErr.message}`);
+      }
+    }
+  };
+
+  const handleDeleteBlogPost = async (postId: string) => {
+    setBlogSuccessMessage("");
+    setBlogErrorMessage("");
+    try {
+      await deleteDoc(doc(db, "blogPosts", postId));
+      setBlogSuccessMessage("Affiliate article successfully purged from database.");
+      setBlogConfirmDeleteId(null);
+    } catch (err: any) {
+      console.error("Delete blog post exception:", err);
+      try {
+        handleFirestoreError(err, OperationType.DELETE, `blogPosts/${postId}`);
+      } catch (mappedErr: any) {
+        setBlogErrorMessage(`Purge Lock: ${mappedErr.message}`);
+      }
+    }
+  };
+
+  const handleIncrementBlogPostViewCount = async (post: BlogPost) => {
+    try {
+      await updateDoc(doc(db, "blogPosts", post.id), {
+        viewCount: (post.viewCount || 0) + 1
+      });
+    } catch (err: any) {
+      console.warn("Could not increment view metrics on direct access:", err);
     }
   };
 
@@ -838,18 +1659,20 @@ export default function App() {
     if (selectedGoal) {
       const g = selectedGoal.toLowerCase();
       let keywords: string[] = [];
-      if (g === "brain") {
-        keywords = ["brain", "mind", "nootropic", "focus", "memory", "cognit", "astro", "moon", "billionaire", "neuro"];
+      if (g === "brain" || g === "cognitive" || g === "cognitive longevity") {
+        keywords = ["brain", "cognitive", "nootropic", "focus", "memory", "mind", "neuro", "cosmic", "natal", "seeker", "manifest", "wealth", "secret", "cell", "vitality", "longevity", "anti-aging", "life"];
       } else if (g === "sleep") {
         keywords = ["sleep", "rest", "pillow", "foam", "derila", "bed"];
-      } else if (g === "energy") {
-        keywords = ["energy", "weight", "fit", "healthy", "flora", "digest", "metabol", "stamina", "alpilean", "vision"];
+      } else if (g === "energy" || g === "metabolic" || g === "metabolic efficiency") {
+        keywords = ["energy", "weight", "fit", "healthy", "flora", "digest", "metabolic", "metabol", "stamina", "alpilean", "vision", "burn", "java", "fat", "sugar", "diet", "puravive"];
       } else if (g === "longevity") {
         keywords = ["longevity", "cell", "vitality", "anti-aging", "vision", "health", "life"];
+      } else if (g === "neurological" || g === "neurological tuning") {
+        keywords = ["acoustic", "neural", "frequency", "sound", "wave", "audio", "hearing", "ear", "binaural", "tuning", "music", "woodworking", "astrology", "billionaire", "reading"];
       }
 
       list = list.filter(p => {
-        const text = `${p.title} ${p.description} ${p.category} ${p.seoKeywords} ${p.whoItIsFor || ""}`.toLowerCase();
+        const text = `${p.title} ${p.description} ${p.category} ${p.seoKeywords ? p.seoKeywords.join(" ") : ""} ${p.whoItIsFor || ""}`.toLowerCase();
         return keywords.some(k => text.includes(k));
       });
     }
@@ -941,12 +1764,621 @@ export default function App() {
     return acc + (parseFloat(item.variant.price.amount) * item.quantity);
   }, 0);
 
+  if (isBlogPageActive) {
+    const isUserAdmin = userProfile?.role === UserRole.ADMIN || currentUser?.email === ADMIN_EMAIL;
+    
+    // Filter out posts based on draft/visibility
+    const visibleBlogPosts = blogPosts.filter(p => {
+      if (p.status === "draft" && !isUserAdmin) return false;
+      if (p.visibility === "admins" && !isUserAdmin) return false;
+      if (p.visibility === "members" && !currentUser) return false;
+      return true;
+    });
+
+    // Dynamic Categories selector for the blog index
+    const blogCategoriesSet = new Set<string>();
+    visibleBlogPosts.forEach(p => {
+      if (p.category) blogCategoriesSet.add(p.category);
+    });
+    const uniqueBlogCategories = ["All", ...Array.from(blogCategoriesSet)];
+
+    // Target post selection
+    const matchedPost = blogPostSlug ? blogPosts.find(p => p.slug === blogPostSlug) : null;
+
+    return (
+      <div className="min-h-screen bg-[#050505] text-neutral-100 font-sans antialiased selection:bg-neo-gold selection:text-black flex flex-col justify-between relative overflow-x-hidden">
+        {/* Aesthetic pairing backgrounds */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 select-none">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#141414_1px,transparent_1px),linear-gradient(to_bottom,#141414_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-25" />
+          <div className="absolute top-0 right-[20%] w-[500px] h-[500px] bg-[#c3a05c]/5 blur-[120px] rounded-full animate-pulse duration-[8000ms]" />
+          <div className="absolute bottom-[20%] left-[10%] w-[400px] h-[400px] bg-[#c3a05c]/3 blur-[140px] rounded-full" />
+        </div>
+
+        {/* Global Nav Header */}
+        <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-neutral-900 px-6 py-4 md:px-12">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-6 md:gap-8">
+              <div className="flex flex-col cursor-pointer" onClick={navigateToHome}>
+                <h1 className="font-display font-bold text-lg md:text-xl tracking-[0.25em] text-neutral-100 uppercase">
+                  BuyerSpotted<span className="text-neo-gold">.</span>
+                </h1>
+                <span className="font-mono text-[9px] tracking-widest text-neutral-500 uppercase mt-0.5">
+                  Curated Luxury Tech Vault
+                </span>
+              </div>
+              
+              <nav className="flex items-center gap-4 border-l border-neutral-900 pl-6 md:pl-8">
+                <button 
+                  onClick={navigateToHome}
+                  className="font-mono text-[9px] md:text-[10px] tracking-widest uppercase transition-colors bg-transparent border-none outline-none cursor-pointer text-neutral-400 hover:text-white"
+                >
+                  Catalog
+                </button>
+                <button 
+                  onClick={navigateToBlog}
+                  className="font-mono text-[9px] md:text-[10px] tracking-widest uppercase transition-colors bg-transparent border-none outline-none cursor-pointer text-neo-gold font-semibold"
+                >
+                  Blog
+                </button>
+              </nav>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {userProfile ? (
+                <div className="flex items-center gap-2 bg-[#090909] border border-neutral-900 rounded-md p-1.5 pl-3">
+                  <div className="flex flex-col text-right hidden lg:flex">
+                    <span className="font-mono text-[9px] text-neutral-400 font-semibold truncate max-w-[125px]">
+                      {userProfile.email}
+                    </span>
+                    <span className="font-mono text-[8px] text-[#c3a566] tracking-widest mt-0.5 uppercase font-bold">
+                      {userProfile.role === UserRole.ADMIN ? "ADMIN" : "GUEST"}
+                    </span>
+                  </div>
+                  
+                  {userProfile.role === UserRole.ADMIN && (
+                    <button
+                      onClick={() => {
+                        setIsAdminViewActive(true);
+                        navigateToHome();
+                      }}
+                      className="ml-1.5 py-1.5 px-3 rounded text-[9px] font-mono tracking-widest uppercase bg-neutral-900 text-neutral-300 border border-neutral-800 hover:border-neo-gold hover:text-neo-gold cursor-pointer"
+                    >
+                      Workspace
+                    </button>
+                  )}
+
+                  <button
+                    onClick={async () => {
+                      await logOutUser();
+                      setIsAdminViewActive(false);
+                      navigateToHome();
+                    }}
+                    className="p-1 px-2 text-neutral-500 hover:text-rose-450 transition-all font-mono text-[9px] tracking-wider uppercase ml-1 cursor-pointer"
+                  >
+                    EXIT
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      setIsLoggingIn(true);
+                      await signInWithGoogle();
+                    } catch (e) {
+                      console.error("Login exception:", e);
+                    } finally {
+                      setIsLoggingIn(false);
+                    }
+                  }}
+                  className="px-4 py-2 border border-neutral-800 bg-neutral-950 text-neutral-300 hover:text-white hover:border-[#c3a05c] hover:shadow-[0_0_12px_rgba(195,160,92,0.1)] font-mono text-[9px] uppercase tracking-widest transition-all rounded-xs cursor-pointer flex items-center gap-2"
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <RefreshCw className="w-3 h-3 animate-spin text-neo-gold" /> AUTHENTICATING...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-3 h-3 text-neo-gold" /> VIP ACCESS LOGIN
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Outer container */}
+        <main className="max-w-4xl mx-auto px-6 py-12 md:py-16 relative z-10 flex-1 w-full">
+          {matchedPost ? (
+            
+            // -------------------------------------------------------------
+            // SINGLE DYNAMIC ARTICLE READ VIEW
+            // -------------------------------------------------------------
+            (() => {
+              const accessRestricted = matchedPost.visibility === "admins" && !isUserAdmin;
+              const memberRestricted = matchedPost.visibility === "members" && !currentUser;
+
+              if (accessRestricted) {
+                return (
+                  <div className="bg-neutral-950 border border-neutral-900 rounded-lg p-10 text-center space-y-4 max-w-lg mx-auto my-16">
+                    <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto animate-pulse" />
+                    <h3 className="font-display font-semibold text-neutral-200 uppercase tracking-widest">ACCESS DENIED</h3>
+                    <p className="font-mono text-[9px] text-neutral-500 leading-relaxed uppercase">
+                      THIS SUMMARY PIECE REQUIRES ELEVATED OPERATIONAL PROTOCOLS ACCESS OR REGISTERED CREDENTIALS.
+                    </p>
+                    <button 
+                      onClick={navigateToBlog}
+                      className="px-6 py-2.5 border border-neutral-808 text-neutral-400 hover:text-white hover:border-neutral-700 bg-neutral-900 font-mono text-[9px] uppercase tracking-widest block mx-auto rounded cursor-pointer"
+                    >
+                      Return to Feed
+                    </button>
+                  </div>
+                );
+              }
+
+              if (memberRestricted) {
+                return (
+                  <div className="bg-neutral-950 border border-neutral-900 rounded-lg p-10 text-center space-y-6 max-w-md mx-auto my-16 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-neo-gold/5 blur-3xl rounded-full"></div>
+                    <Lock className="w-10 h-10 text-neo-gold mx-auto animate-bounce" />
+                    <div className="space-y-1.5">
+                      <h3 className="font-display font-semibold text-neutral-100 uppercase tracking-widest text-[#c3a05c]">RESERVED MEMBERS ARCHIVE</h3>
+                      <p className="font-mono text-[9px] text-neutral-450 uppercase leading-relaxed max-w-sm mx-auto">
+                        This curated review article is restricted to premium members of the BuyerSpotted catalog community. Signing in with Google issues instant VIP credentials for secure access.
+                      </p>
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          setIsLoggingIn(true);
+                          await signInWithGoogle();
+                        } catch (e) {
+                          console.error("Login action failure:", e);
+                        } finally {
+                          setIsLoggingIn(false);
+                        }
+                      }}
+                      className="w-full py-3 bg-[#c3a05c] hover:bg-yellow-650 text-black font-semibold font-mono text-[9px] tracking-widest uppercase rounded-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Lock className="w-3.5 h-3.5" /> INSTANT SIGN IN WITH GOOGLE
+                    </button>
+                    <button 
+                      onClick={navigateToBlog}
+                      className="text-neutral-500 hover:text-neutral-300 font-mono text-[8px] uppercase tracking-widest mt-2 block mx-auto text-center"
+                    >
+                      Return to Feed
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <article className="space-y-8 animate-in fade-in duration-500">
+                  
+                  {/* Article Banner & Dynamic Labels */}
+                  <div className="space-y-4">
+                    <button 
+                      onClick={navigateToBlog}
+                      className="font-mono text-[9px] uppercase text-neutral-450 hover:text-neo-gold tracking-widest flex items-center gap-1 bg-transparent border-none outline-none cursor-pointer"
+                    >
+                      ← Return to Curation Feed
+                    </button>
+
+                    {matchedPost.imageUrl && (
+                      <img 
+                        src={matchedPost.imageUrl} 
+                        alt="Banner" 
+                        className="w-full h-64 md:h-[350px] object-cover rounded-lg border border-neutral-900 shadow-2xl bg-black"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+
+                    <div className="space-y-2 border-b border-neutral-900 pb-5">
+                      <span className="font-mono text-[9px] text-neo-gold uppercase tracking-widest font-bold">
+                        {matchedPost.category}
+                      </span>
+                      <h1 className="font-display font-bold text-2xl md:text-3xl text-neutral-100 uppercase tracking-normal leading-tight">
+                        {matchedPost.title}
+                      </h1>
+                      
+                      {/* Meta information tags */}
+                      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[8px] text-neutral-550 uppercase tracking-wider mt-2.5">
+                        <span>BY {matchedPost.authorName}</span>
+                        <span>•</span>
+                        <span>{matchedPost.readingTime || 5} MIN READ</span>
+                        <span>•</span>
+                        <span className="text-neo-gold font-bold">{matchedPost.viewCount || 0} RESEARCH VIEWS</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Body Content with Parser */}
+                  <div className="space-y-4 font-light text-neutral-300 leading-relaxed text-sm md:text-base border-b border-neutral-900 pb-10">
+                    <article className="prose prose-invert max-w-none text-neutral-300">
+                      {(() => {
+                        const lines = matchedPost.content.split("\n");
+                        return lines.map((line, bIdx) => {
+                          return renderArticleLine(
+                            line, 
+                            bIdx, 
+                            products, 
+                            matchedPost.featuredProductId, 
+                            matchedPost.ctaText, 
+                            matchedPost.ctaLink
+                          );
+                        });
+                      })()}
+                    </article>
+                  </div>
+
+                  {/* Core Outbound CTA Box (Secondary layout coverage) */}
+                  {matchedPost.ctaLink && (
+                    <div className="p-6 bg-neutral-950 border border-neutral-900 rounded-lg text-center space-y-4">
+                      <span className="font-mono text-[8px] text-neo-gold tracking-widest uppercase font-bold block">PLATFORM ACCESS CONTRACT PROTOCOL</span>
+                      <h3 className="font-display font-semibold text-neutral-100 uppercase tracking-wide text-sm">UNLOCK PRIORITY ENERGETIC TREATMENT ACCESS</h3>
+                      <p className="font-mono text-[9px] text-neutral-450 uppercase max-w-md mx-auto leading-relaxed">
+                        Access discounted direct manufacturer shipments through our authenticated VIP channels. Perfect baseline refund options.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.open(matchedPost.ctaLink, "_blank", "noopener,noreferrer");
+                        }}
+                        className="px-8 py-3.5 bg-[#c3a05c] hover:bg-yellow-600 text-black font-semibold font-mono text-[9px] tracking-widest uppercase rounded-sm block mx-auto transition-all cursor-pointer shadow-lg"
+                      >
+                        {matchedPost.ctaText || "Claim Exclusive Pricing Benefits"} →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Related Article Footnotes */}
+                  <div className="space-y-4 pt-6">
+                    <h4 className="font-mono text-[9px] text-[#c3a05c] uppercase tracking-widest font-bold">SUGGESTED RELATED INSIGHTS</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {visibleBlogPosts.filter(p => p.id !== matchedPost.id).slice(0, 2).map((rel) => (
+                        <div 
+                          key={rel.id} 
+                          onClick={() => navigateToBlogPost(rel.slug)}
+                          className="bg-neutral-950/40 border border-neutral-900 p-4 rounded hover:border-neo-gold/40 cursor-pointer transition-all space-y-2 group"
+                        >
+                          <span className="font-mono text-[7px] text-[#c3a566] tracking-widest uppercase font-semibold">{rel.category}</span>
+                          <h5 className="font-display font-bold text-xs text-neutral-300 group-hover:text-white transition-colors uppercase truncate">{rel.title}</h5>
+                          <span className="font-mono text-[8px] text-neutral-550 uppercase block">{rel.readingTime || 5} MIN READ</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </article>
+              );
+            })()
+          ) : (
+            
+            // -------------------------------------------------------------
+            // MULTI ARTICLE BLOG LIST FEED
+            // -------------------------------------------------------------
+            <div className="space-y-10 animate-in fade-in duration-500">
+              
+              {/* Header Titles */}
+              <div className="text-center space-y-3 pb-8 border-b border-neutral-900">
+                <span className="font-mono text-[9px] text-neo-gold uppercase tracking-widest block font-bold">SYSTEMATIC INTELLECT RESEARCH HUB</span>
+                <h1 className="font-display font-medium text-2xl md:text-3xl tracking-tight text-neutral-100 uppercase">
+                  BuyerSpotted Curation Desk
+                </h1>
+                <p className="font-mono text-[9px] text-neutral-500 uppercase tracking-widest max-w-md mx-auto leading-relaxed">
+                  Deciphering high-gravity biological systems, energetic acoustic architectures, and cognitive performance reviews.
+                </p>
+              </div>
+
+              {/* Dynamic Categories selector bar */}
+              {uniqueBlogCategories.length > 2 && (
+                <div className="flex flex-wrap items-center justify-center gap-1.5 py-1">
+                  {uniqueBlogCategories.map((catName) => (
+                    <button
+                      key={catName}
+                      type="button"
+                      onClick={() => setActiveBlogCategoryFilter(catName)}
+                      className={`px-3 py-1.5 rounded-sm font-mono text-[8px] tracking-widest uppercase transition-all cursor-pointer ${
+                        activeBlogCategoryFilter === catName 
+                          ? "bg-neo-gold text-black font-semibold border-none" 
+                          : "bg-neutral-950 text-neutral-400 border border-neutral-900 hover:text-white"
+                      }`}
+                    >
+                      {catName}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Filtering items lists */}
+              {(() => {
+                const finalFilteredPosts = activeBlogCategoryFilter === "All" 
+                  ? visibleBlogPosts
+                  : visibleBlogPosts.filter(p => p.category === activeBlogCategoryFilter);
+
+                if (finalFilteredPosts.length === 0) {
+                  return (
+                    <div className="text-center py-24 border border-dashed border-neutral-900 rounded">
+                      <Lock className="w-8 h-8 text-neutral-800 mx-auto mb-3 animate-pulse" />
+                      <span className="font-mono text-xs text-neutral-500 uppercase tracking-wider block">Awaiting Research Submissions</span>
+                      <p className="font-mono text-[9px] text-neutral-600 uppercase max-w-sm mx-auto mt-1 leading-normal">
+                        No articles reside in this specific telemetry pool index. Please return to standard selections.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                    {finalFilteredPosts.map((post) => (
+                      <article 
+                        key={post.id}
+                        onClick={() => navigateToBlogPost(post.slug)}
+                        className="bg-neutral-950 border border-neutral-900 rounded-lg overflow-hidden flex flex-col justify-between hover:border-neo-gold/40 hover:shadow-[0_0_15px_rgba(195,160,92,0.06)] transition-all group cursor-pointer duration-300"
+                      >
+                        <div>
+                          {post.imageUrl && (
+                            <div className="relative overflow-hidden h-44 bg-black border-b border-neutral-900">
+                              <img 
+                                src={post.imageUrl} 
+                                alt={post.title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                referrerPolicy="no-referrer"
+                              />
+                              <span className="absolute top-3 left-3 px-2 py-0.5 rounded-xs bg-[#050505]/95 backdrop-blur-md border border-neutral-800 text-[6px] font-mono font-bold uppercase tracking-wider text-[#c3a05c]">
+                                {post.category || "Curation"}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="p-5 space-y-3">
+                            <div className="flex items-center gap-3 font-mono text-[7px] text-neutral-550 uppercase">
+                              <span>BY {post.authorName}</span>
+                              <span>•</span>
+                              <span>{post.readingTime || 5} MIN READ</span>
+                            </div>
+
+                            <h3 className="font-display font-semibold text-sm text-neutral-100 group-hover:text-neo-gold uppercase tracking-wider transition-colors line-clamp-2">
+                              {post.title}
+                            </h3>
+
+                            {/* Extract clean paragraph preview */}
+                            <p className="font-light text-neutral-400 text-[11px] leading-relaxed line-clamp-3">
+                              {post.content.replace(/\[Affiliate CTA Callout Block\]/g, "").replace(/[#*>_\-]/g, "").trim().slice(0, 160) || "Read the complete strategic summary on our Curation Desk."}...
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="p-5 pt-0 border-t border-neutral-900 mt-4 flex items-center justify-between">
+                          <span className="font-mono text-[8px] text-[#c3a05c] uppercase font-bold tracking-widest group-hover:underline">
+                            READ CURATED ARTICLE →
+                          </span>
+                          <span className="font-mono text-[7px] text-neutral-500 uppercase">
+                            {post.viewCount || 0} RESEARCH VIEWS
+                          </span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                );
+              })()}
+
+            </div>
+          )}
+        </main>
+
+        <footer className="border-t border-neutral-900 bg-neutral-950 py-8 px-6 text-center text-xs text-neutral-500 font-mono tracking-widest uppercase mt-20">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-[10px]">
+              © 2026 BuyerSpotted. ALL RIGHTS RESERVED.
+            </p>
+            <button onClick={navigateToHome} className="text-[10px] text-neo-gold hover:underline bg-transparent border-none outline-none cursor-pointer">
+              RETURN TO MAIN NETWORK CATALOG
+            </button>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  if (activeCategoryPage) {
+    const categoryProducts = products.filter(p => (p.category || "ClickBank Curated") === activeCategoryPage);
+    const details = getCategoryDetails(activeCategoryPage);
+
+    return (
+      <div className="min-h-screen bg-[#050505] text-neutral-100 font-sans antialiased selection:bg-neo-gold selection:text-black flex flex-col justify-between relative overflow-x-hidden">
+        {/* Web Designer Stylish Background Cue Overlay (Fixed positions, soft ambient lights + geometric mesh) */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 select-none">
+          {/* Futuristic subtle grid */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#141414_1px,transparent_1px),linear-gradient(to_bottom,#141414_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-25" />
+          {/* Dynamic organic warm gold-sky dual light glows */}
+          <div className="absolute -top-[10%] left-[5%] w-[400px] h-[400px] bg-[#c3a05c]/[0.05] rounded-full blur-[120px] mix-blend-screen animate-pulse duration-[8000ms]" />
+          <div className="absolute top-[35%] -right-[15%] w-[500px] h-[500px] bg-sky-500/[0.03] rounded-full blur-[140px] mix-blend-screen" />
+          <div className="absolute -bottom-[10%] left-[20%] w-[450px] h-[440px] bg-[#c3a05c]/[0.04] rounded-full blur-[130px] mix-blend-screen animate-pulse duration-[10000ms]" />
+          <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#c3a05c]/20 to-transparent" />
+        </div>
+
+        {/* Sleek Geometric Frame Details */}
+        <div className="fixed inset-0 pointer-events-none border border-neutral-900 z-50 m-4 opacity-70"></div>
+
+        {/* Brand Header */}
+        <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-neutral-900 px-6 py-4 md:px-12">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {/* Logo */}
+            <div className="flex flex-col cursor-pointer" onClick={navigateToHome}>
+              <h1 className="font-display font-bold text-lg md:text-xl tracking-[0.25em] text-neutral-100 uppercase">
+                BuyerSpotted<span className="text-neo-gold">.</span>
+              </h1>
+              <span className="font-mono text-[9px] tracking-widest text-[#c3a05c] uppercase mt-0.5">
+                Dynamic Research Curation
+              </span>
+            </div>
+
+            <button
+              onClick={navigateToHome}
+              className="flex items-center gap-1.5 px-4 py-2 border border-neutral-800 text-neutral-400 hover:text-neo-gold hover:border-neo-gold bg-neutral-950 font-mono text-[9px] uppercase tracking-wider rounded-sm transition-all cursor-pointer"
+            >
+              ← Back to Catalog
+            </button>
+          </div>
+        </header>
+
+        {/* Hero banner for Category */}
+        <section className="relative overflow-hidden border-b border-neutral-900 py-20 px-6 md:px-12 bg-neutral-950/40">
+          <div className="absolute inset-x-0 top-0 h-96 opacity-10 pointer-events-none">
+            <img src={details.image} className="w-full h-full object-cover blur-md" referrerPolicy="no-referrer" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent" />
+          </div>
+
+          <div className="max-w-4xl mx-auto relative z-10 text-center">
+            {/* Breadcrumbs */}
+            <div className="flex justify-center items-center gap-2 mb-4">
+              <button onClick={navigateToHome} className="font-mono text-[8px] tracking-widest text-neutral-500 uppercase hover:text-neo-gold transition-colors">BUYERSPOTTED</button>
+              <span className="font-mono text-[8px] text-neutral-700">/</span>
+              <span className="font-mono text-[8px] tracking-widest text-neutral-400 uppercase">CATEGORIES</span>
+              <span className="font-mono text-[8px] text-neutral-700">/</span>
+              <span className="font-mono text-[8px] tracking-widest text-neo-gold uppercase">{details.title.toUpperCase()}</span>
+            </div>
+
+            <h2 className="font-display text-2xl md:text-4xl font-extrabold tracking-wider text-neutral-100 uppercase mb-4">
+              {details.title}
+            </h2>
+            <p className="text-xs md:text-sm text-neutral-400 font-light leading-relaxed max-w-2xl mx-auto">
+              {details.desc}
+            </p>
+          </div>
+        </section>
+
+        {/* Content list: clean, easy to read & not technical */}
+        <main className="max-w-5xl mx-auto px-6 py-12 md:px-12 flex-1 w-full relative z-10">
+          <div className="mb-8 border-b border-neutral-900 pb-4 flex justify-between items-center text-[10px] text-neutral-500 font-mono uppercase tracking-wider">
+            <span>Showing {categoryProducts.length} expert curations in this pipeline</span>
+            <span>Direct Vendor Authorization</span>
+          </div>
+
+          {categoryProducts.length === 0 ? (
+            <div className="text-center py-20 border border-dashed border-neutral-900 rounded-lg">
+              <Sliders className="w-8 h-8 text-neutral-700 mx-auto mb-4 animate-bounce" />
+              <p className="font-mono text-[10px] tracking-widest text-neo-gold uppercase">No active elements in this pipeline</p>
+              <button 
+                onClick={navigateToHome} 
+                className="mt-4 px-4 py-2 bg-neutral-950 border border-neutral-800 text-neutral-400 hover:text-neo-gold hover:border-neo-gold font-mono text-[9px] tracking-wider uppercase rounded-sm transition-all cursor-pointer"
+              >
+                Return to home catalog
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {categoryProducts.map((p) => {
+                const primaryImage = p.images[0]?.url || "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600";
+                const isLast3Added = products.slice(0, 3).some(latest => latest.id === p.id);
+
+                return (
+                  <motion.div
+                    key={p.id}
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={() => navigateToProduct(p.title)}
+                    className="group bg-neutral-950 border border-neutral-900 hover:border-neutral-800 p-6 rounded-lg cursor-pointer flex flex-col md:flex-row gap-6 transition-all"
+                  >
+                    {/* Compact Image */}
+                    <div className="w-full md:w-32 h-32 shrink-0 rounded overflow-hidden bg-[#070707] border border-neutral-900 flex items-center justify-center p-2">
+                      <img 
+                        src={primaryImage} 
+                        alt={p.title} 
+                        referrerPolicy="no-referrer"
+                        className="max-w-full max-h-full object-contain brightness-95 group-hover:scale-105 transition-transform duration-500" 
+                      />
+                    </div>
+
+                    {/* Non-technical clean details */}
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        {/* Title & Badge */}
+                        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                          <h3 className="font-display font-semibold text-sm tracking-wide text-neutral-100 group-hover:text-neo-gold transition-colors uppercase">
+                            {p.title}
+                          </h3>
+                          {p.is_subscription && (
+                            <span className="font-mono text-[8px] bg-[#c3a05c]/10 text-[#c3a05c] px-2 py-0.5 rounded-sm tracking-widest uppercase font-semibold">
+                              Continuous Support Activated
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Beautiful layperson summary */}
+                        <p className="text-[11px] text-neutral-400 font-light leading-relaxed mb-4">
+                          {p.seoHeadline || p.description || "Specifically compiled with wellness and systemic balance in mind for optimized daily performance."}
+                        </p>
+
+                        {/* Bullet point details in simple language */}
+                        <div className="space-y-1.5 border-t border-neutral-900/60 pt-3">
+                          <div className="flex items-start gap-1.5 text-[10px] text-neutral-400 font-light">
+                            <span className="text-[#c3a05c]">•</span>
+                            <span><strong>Target Focus:</strong> {p.whoItIsFor || "General daily usage and progressive bodily alignment."}</span>
+                          </div>
+                          {(p.whyItWorks || p.why_it_works) && (
+                            <div className="flex items-start gap-1.5 text-[10px] text-neutral-400 font-light">
+                              <span className="text-[#c3a05c]">•</span>
+                              <span><strong>Clinical Reason:</strong> {p.whyItWorks || p.why_it_works}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="mt-4 border-t border-neutral-900/60 pt-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateToProduct(p.title);
+                          }}
+                          className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 text-neutral-300 group-hover:border-neo-gold group-hover:bg-neo-gold group-hover:text-black transition-all font-mono text-[9px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <span>{isLast3Added ? "READ REVIEW" : "DEPLOY FULL LAB ANALYSIS →"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-neutral-900 bg-neutral-950 py-8 px-6 text-center text-xs text-neutral-500 font-mono tracking-widest uppercase mt-20">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-[10px]">
+              © 2026 BuyerSpotted. ALL RIGHTS RESERVED.
+            </p>
+            <button onClick={navigateToHome} className="text-[10px] text-neo-gold hover:underline bg-transparent border-none outline-none cursor-pointer">
+              RETURN TO MAIN NETWORK CATALOG
+            </button>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   if (pathProductSlug) {
     const matchedProduct = products.find((p) => getProductSlug(p.title) === pathProductSlug);
     const isUserAdmin = userProfile?.role === UserRole.ADMIN || currentUser?.email === ADMIN_EMAIL;
 
     return (
       <div className="min-h-screen bg-[#050505] text-neutral-100 font-sans antialiased selection:bg-neo-gold selection:text-black flex flex-col justify-between relative overflow-x-hidden">
+        {/* Web Designer Stylish Background Cue Overlay (Fixed positions, soft ambient lights + geometric mesh) */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 select-none">
+          {/* Futuristic subtle grid */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#141414_1px,transparent_1px),linear-gradient(to_bottom,#141414_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-25" />
+          {/* Dynamic organic warm gold-sky dual light glows */}
+          <div className="absolute -top-[10%] left-[5%] w-[400px] h-[400px] bg-[#c3a05c]/[0.05] rounded-full blur-[120px] mix-blend-screen animate-pulse duration-[8000ms]" />
+          <div className="absolute top-[35%] -right-[15%] w-[500px] h-[500px] bg-sky-500/[0.03] rounded-full blur-[140px] mix-blend-screen" />
+          <div className="absolute -bottom-[10%] left-[20%] w-[450px] h-[440px] bg-[#c3a05c]/[0.04] rounded-full blur-[130px] mix-blend-screen animate-pulse duration-[10000ms]" />
+          <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#c3a05c]/20 to-transparent" />
+        </div>
+
         {/* Sleek Geometric Frame Details */}
         <div className="fixed inset-0 pointer-events-none border border-neutral-900 z-50 m-4 opacity-70"></div>
 
@@ -1174,29 +2606,40 @@ export default function App() {
                   </div>
 
                   <div className="space-y-1 mt-2">
-                    <span className="font-mono text-[10px] text-neutral-550 uppercase tracking-widest block">SECURE PRICING SELECTION</span>
-                    <h3 className="font-display font-medium text-lg text-neutral-100">Claim Promotion & Guarantee</h3>
+                    <span className="font-mono text-[10px] text-neutral-550 uppercase tracking-widest block">SECURE OFFER ANCHOR</span>
+                    <h3 className="font-display font-medium text-lg text-neutral-100">Claim Direct Promotion</h3>
                   </div>
 
-                  {/* Pricing Frame with Discount Illusion */}
-                  {(() => {
-                    return (
-                      <div className="bg-[#090909] border border-neutral-900 rounded-lg p-4 flex items-center justify-between font-mono">
-                        <div className="space-y-1">
-                          <span className="text-[8px] text-neutral-550 uppercase tracking-widest block">ESTIMATED RETAIL</span>
-                          <span className="text-xs text-neutral-500/70">
-                            Pricing Varies
-                          </span>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <span className="text-[8px] text-neo-gold uppercase tracking-widest block font-bold font-semibold">SPECIAL SAVINGS PRICE</span>
-                          <span className="text-xs font-bold text-neo-gold uppercase tracking-wider">
-                            Special Discount Active
-                          </span>
-                        </div>
+                  {/* Pricing Frame with Value-Based Price Anchoring */}
+                  <div className="bg-[#090909] border border-neutral-900 rounded-lg p-4 space-y-3.5 font-mono">
+                    <div className="flex items-center justify-between border-b border-neutral-900/60 pb-2.5">
+                      <span className="text-[8px] text-neutral-550 uppercase tracking-widest block">Pricing Model</span>
+                      <div className="flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-900/55 px-2 py-0.5 rounded">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-widest">Verified Pricing Stream</span>
                       </div>
-                    );
-                  })()}
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between text-[10px]">
+                        <span className="text-neutral-500 uppercase tracking-wider">Savings Tier:</span>
+                        <span className="text-neo-gold font-bold uppercase text-right">Maximum Tier Discount Activated</span>
+                      </div>
+                      <div className="flex items-start justify-between text-[10px]">
+                        <span className="text-neutral-500 uppercase tracking-wider">Manufacturer Rate:</span>
+                        <span className="text-neutral-300 font-medium uppercase text-right">Package Savings Available</span>
+                      </div>
+                      <div className="flex items-start justify-between text-[10px]">
+                        <span className="text-neutral-500 uppercase tracking-wider">Inventory Status:</span>
+                        <span className="text-emerald-400 font-semibold uppercase text-right">Lowest Authorized Batch Active</span>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-neutral-900/60 pt-2.5 flex items-center justify-center gap-2 bg-neutral-900/20 py-1.5 rounded">
+                      <ShieldCheck className="w-3.5 h-3.5 text-neo-gold shrink-0" />
+                      <span className="text-[8px] text-neutral-400 uppercase tracking-widest font-bold">Direct Vendor Authorization: Active</span>
+                    </div>
+                  </div>
 
                   {/* Dynamic Variant Selector (if options exist) */}
                   {matchedProduct.variants.length > 0 && (
@@ -1230,30 +2673,40 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                       {/* Guaranteed Satisfaction Indicator Box */}
-                  <div className="bg-[#090909] border border-neutral-900 border-dashed rounded-lg p-3.5 flex gap-3 items-start">
+
+                  {/* Ironclad Refund Guarantee Box */}
+                  <div className="bg-[#090909] border border-neutral-900 border-dashed rounded-lg p-4 flex gap-3.5 items-start">
                     <ShieldCheck className="w-5 h-5 text-neo-gold shrink-0 mt-0.5" />
-                    <p className="font-mono text-[9px] uppercase tracking-wide text-neutral-400 leading-relaxed">
-                      Backed by the provider's ironclad <strong className="text-neo-gold font-bold">{matchedProduct.refund_window || "60-Day"} Risk-Free Satisfaction Guarantee</strong>. Completely risk-free investment.
-                    </p>
+                    <div className="space-y-1">
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-neo-gold font-bold block">Ironclad Guarantee</span>
+                      <p className="font-mono text-[9px] uppercase tracking-wide text-neutral-400 leading-relaxed">
+                        Backed by the manufacturer's official <strong className="text-neo-gold font-bold">{matchedProduct.refund_window || "60-Day"} Money-Back Guarantee</strong>. Completely risk-free investment.
+                      </p>
+                    </div>
                   </div>
 
-                  {/* High-Converting Catchy CTA Button */}
-                  <div className="pt-2">
+                  {/* Conversion Optimized CTA Button Area */}
+                  <div className="space-y-3 pt-1">
                     <a
                       href={matchedProduct.clickbankUrl || matchedProduct.amazonUrl || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full py-4.5 px-3 bg-gradient-to-r from-neo-gold via-yellow-500 to-yellow-600 hover:brightness-110 active:scale-[0.99] text-black font-semibold rounded shadow-[0_4px_30px_rgba(195,160,92,0.25)] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer text-center group"
+                      className="w-full py-4.5 px-4 bg-gradient-to-r from-neo-gold via-yellow-500 to-yellow-600 hover:brightness-110 active:scale-[0.99] text-black font-semibold rounded shadow-[0_4px_30px_rgba(195,160,92,0.25)] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer text-center group"
                     >
-                      <div className="flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-black tracking-widest uppercase text-black">
-                        <span>👉 VIEW LATEST DEALS & OFFICIAL AVAILABILITY 👈</span>
+                      <div className="flex items-center gap-1.5 font-mono text-[10px] md:text-[11px] font-black tracking-widest uppercase text-black">
+                        <span>👉 Check Live Package Discounts & Official Availability Here</span>
                         <ExternalLink className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-black" />
                       </div>
-                      <span className="font-mono text-[8px] tracking-wider text-black/75 font-medium uppercase mt-1">
-                        ACTIVATE EXTRA {matchedProduct.refund_window?.toUpperCase() || "60-DAY"} REFUND PROTECTION & CHOOSE SPECIAL MANUFACTURER DEALS
-                      </span>
                     </a>
+                    
+                    <div className="text-center space-y-1">
+                      <p className="font-mono text-[8px] tracking-wide text-neutral-400 uppercase leading-normal">
+                        🛡️ 100% Risk-Free Guarantee Backed Directly by the Manufacturer.
+                      </p>
+                      <p className="font-mono text-[7.5px] tracking-wide text-neutral-550 uppercase leading-normal max-w-xs mx-auto">
+                        Safely routes to the verified manufacturer secure server for real-time promotional rates and inventory status.
+                      </p>
+                    </div>
                   </div>
 
                   {/* Trust Badge Indicators */}
@@ -1266,12 +2719,40 @@ export default function App() {
                     </div>
                     
                     <div className="flex justify-center items-center gap-3.5 text-center font-mono text-[8px] uppercase tracking-wider text-neutral-600">
-                      <span className="flex items-center gap-1">🔒 SECURE SSL</span>
+                      <span className="flex items-center gap-1">🔒 SECURE SSL SIGNALS</span>
                       <span>&bull;</span>
-                      <span className="flex items-center gap-1">🛡️ OFFICIALLY SECURED</span>
+                      <span className="flex items-center gap-1">🛡️ ENCRYPTED SERVER CONNECTION</span>
                     </div>
                   </div>
                 </div>
+
+                {/* Conditional Admin Only View (For the user) */}
+                {isUserAdmin && (
+                  <div className="bg-[#0b0c0f] border border-blue-900/30 rounded-xl p-5 space-y-3.5 font-mono text-[10px]">
+                    <div className="flex items-center gap-2 text-blue-400">
+                      <Sliders className="w-3.5 h-3.5 animate-pulse" />
+                      <span className="font-bold uppercase tracking-wider text-[9px]">ADMIN OPERATIONAL METRICS</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="bg-black/35 p-2.5 rounded border border-neutral-900">
+                        <span className="text-neutral-500 text-[8px] block uppercase mb-0.5">ClickBank Vendor</span>
+                        <span className="text-neutral-300 font-semibold">{matchedProduct.cbVendor || "N/A"}</span>
+                      </div>
+                      <div className="bg-black/35 p-2.5 rounded border border-neutral-900">
+                        <span className="text-neutral-500 text-[8px] block uppercase mb-0.5">Affiliate ID</span>
+                        <span className="text-neutral-300 font-semibold">{matchedProduct.cbAffiliate || "N/A"}</span>
+                      </div>
+                      <div className="bg-black/35 p-2.5 rounded border border-neutral-900">
+                        <span className="text-neutral-500 text-[8px] block uppercase mb-0.5">Gravity Score</span>
+                        <span className="text-neo-gold font-semibold">{matchedProduct.gravity ? matchedProduct.gravity.toFixed(1) : "N/A"}</span>
+                      </div>
+                      <div className="bg-black/35 p-2.5 rounded border border-neutral-900">
+                        <span className="text-neutral-500 text-[8px] block uppercase mb-0.5">Average Conversion</span>
+                        <span className="text-emerald-400 font-semibold">{matchedProduct.conversionLabel || "N/A"}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* FAQ Details accordion */}
                 <div className="bg-neutral-950 border border-neutral-900 rounded-xl p-5 space-y-4">
@@ -1337,8 +2818,18 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-neutral-100 font-sans antialiased selection:bg-neo-gold selection:text-black">
-      
+    <div className="min-h-screen bg-[#050505] text-neutral-100 font-sans antialiased selection:bg-neo-gold selection:text-black relative overflow-x-hidden">
+      {/* Web Designer Stylish Background Cue Overlay (Fixed positions, soft ambient lights + geometric mesh) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 select-none">
+        {/* Futuristic subtle grid */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#141414_1px,transparent_1px),linear-gradient(to_bottom,#141414_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-25" />
+        {/* Dynamic organic warm gold-sky dual light glows */}
+        <div className="absolute -top-[10%] left-[5%] w-[400px] h-[400px] bg-[#c3a05c]/[0.05] rounded-full blur-[120px] mix-blend-screen animate-pulse duration-[8000ms]" />
+        <div className="absolute top-[35%] -right-[15%] w-[500px] h-[500px] bg-sky-500/[0.03] rounded-full blur-[140px] mix-blend-screen" />
+        <div className="absolute -bottom-[10%] left-[20%] w-[450px] h-[440px] bg-[#c3a05c]/[0.04] rounded-full blur-[130px] mix-blend-screen animate-pulse duration-[10000ms]" />
+        <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#c3a05c]/20 to-transparent" />
+      </div>
+
       {/* Sleek Geometric Frame Details */}
       <div className="fixed inset-0 pointer-events-none border border-neutral-900 z-50 m-4 opacity-70"></div>
       
@@ -1481,14 +2972,32 @@ export default function App() {
       <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-neutral-900 px-6 py-4 md:px-12">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
-          {/* Logo */}
-          <div className="flex flex-col">
-            <h1 className="font-display font-bold text-lg md:text-xl tracking-[0.25em] text-neutral-100 uppercase">
-              BuyerSpotted<span className="text-neo-gold">.</span>
-            </h1>
-            <span className="font-mono text-[9px] tracking-widest text-neutral-500 uppercase mt-0.5">
-              Curated Luxury Tech Vault
-            </span>
+          {/* Logo & Public Links Nav */}
+          <div className="flex items-center gap-6 md:gap-8">
+            <div className="flex flex-col cursor-pointer" onClick={navigateToHome}>
+              <h1 className="font-display font-bold text-lg md:text-xl tracking-[0.25em] text-neutral-100 uppercase">
+                BuyerSpotted<span className="text-neo-gold">.</span>
+              </h1>
+              <span className="font-mono text-[9px] tracking-widest text-neutral-500 uppercase mt-0.5">
+                Curated Luxury Tech Vault
+              </span>
+            </div>
+            
+            <nav className="flex items-center gap-4 border-l border-neutral-900 pl-6 md:pl-8">
+              <button 
+                onClick={navigateToHome}
+                className={`font-mono text-[9px] md:text-[10px] tracking-widest uppercase transition-colors bg-transparent border-none outline-none cursor-pointer ${(!isBlogPageActive && !isAdminViewActive) ? "text-neo-gold font-semibold" : "text-neutral-400 hover:text-white"}`}
+              >
+                Catalog
+              </button>
+              <button 
+                onClick={navigateToBlog}
+                className={`font-mono text-[9px] md:text-[10px] tracking-widest uppercase transition-colors bg-transparent border-none outline-none cursor-pointer ${isBlogPageActive ? "text-neo-gold font-semibold" : "text-neutral-400 hover:text-white"}`}
+                id="header-blog-link"
+              >
+                Blog
+              </button>
+            </nav>
           </div>
 
           {/* Navigation Action Buttons */}
@@ -1630,6 +3139,17 @@ export default function App() {
                       }`}
                     >
                       <BarChart3 className="w-3 h-3 text-current" /> Live Analytics
+                    </button>
+                    <button
+                      onClick={() => setAdminTab("blog")}
+                      className={`px-3 py-1.5 font-mono text-[9px] tracking-widest uppercase rounded-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                        adminTab === "blog"
+                          ? "bg-neo-gold text-black font-semibold"
+                          : "text-neutral-550 hover:text-neutral-300"
+                      }`}
+                      id="tab-blog-publishing"
+                    >
+                      <Edit className="w-3 h-3 text-current" /> Blog Publishing
                     </button>
                   </div>
                 </div>
@@ -2196,6 +3716,660 @@ export default function App() {
                   )}
                 </div>
               </div>
+            ) : adminTab === "blog" ? (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                
+                {/* Notification overlays inside container */}
+                {blogSuccessMessage && (
+                  <div className="bg-emerald-950/40 border border-emerald-900 rounded p-4 text-emerald-400 font-mono text-[9px] uppercase tracking-widest flex items-center justify-between">
+                    <span>{blogSuccessMessage}</span>
+                    <button type="button" onClick={() => setBlogSuccessMessage("")} className="text-emerald-500 hover:text-white font-bold cursor-pointer">×</button>
+                  </div>
+                )}
+                {blogErrorMessage && (
+                  <div className="bg-rose-950/40 border border-rose-900 rounded p-4 text-rose-400 font-mono text-[9px] uppercase tracking-widest flex items-center justify-between">
+                    <span>{blogErrorMessage}</span>
+                    <button type="button" onClick={() => setBlogErrorMessage("")} className="text-rose-500 hover:text-white font-bold cursor-pointer">×</button>
+                  </div>
+                )}
+
+                {/* Confirm Delete State Node overlay */}
+                {blogConfirmDeleteId && (
+                  <div className="bg-rose-950/80 border border-rose-800 rounded p-5 text-center space-y-3">
+                    <h5 className="font-mono text-[10px] text-rose-300 uppercase tracking-widest font-bold">WARNING: IRREVERSIBLE PURGE CONTRACT</h5>
+                    <p className="font-mono text-[9px] text-neutral-400 uppercase">Are you absolutely certain you want to purge this article from database?</p>
+                    <div className="flex justify-center gap-3">
+                      <button 
+                        type="button"
+                        onClick={() => handleDeleteBlogPost(blogConfirmDeleteId)}
+                        className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-mono text-[9px] uppercase tracking-wider rounded-sm cursor-pointer"
+                      >
+                        CONFIRM PURGE
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setBlogConfirmDeleteId(null)}
+                        className="px-4 py-1.5 bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800 font-mono text-[9px] uppercase tracking-wider rounded-sm cursor-pointer"
+                      >
+                        CANCEL
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                   {isBlogFormOpen ? (
+                  <form onSubmit={handleSaveBlogPost} className="space-y-6">
+                    {/* Top title and exit row */}
+                    <div className="bg-neutral-950 border border-neutral-900 rounded-lg p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-mono text-xs text-neo-gold uppercase tracking-widest font-bold">
+                          {editingPost ? "MODIFY AFFILIATE MASTERPIECE" : "DRAFT NEW AFFILIATE CORE ARTICLE"}
+                        </h4>
+                        <p className="font-mono text-[9px] text-neutral-500 uppercase mt-1">
+                          Refine or publish high-converting curation articles linked to premium clickbank solutions.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsBlogFormOpen(false);
+                            setEditingPost(null);
+                            resetBlogForm();
+                          }}
+                          className="px-4 py-2 border border-neutral-850 text-neutral-400 hover:text-neutral-200 bg-neutral-900 font-mono text-[9px] uppercase tracking-wider rounded-sm cursor-pointer transition-colors"
+                        >
+                          CANCEL EDITOR
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                      
+                      {/* LEFT COLUMN (70% Focus Layout - Massive WYSIWYG Editor Workspace) */}
+                      <div className="lg:col-span-8 space-y-4">
+                        
+                        {/* Editor Canvas Container */}
+                        <div className="bg-neutral-950 border border-neutral-900 rounded-lg overflow-hidden shadow-2xl">
+                          
+                          {/* WYSIWYG Workspace Switcher Head */}
+                          <div className="flex border-b border-neutral-900 bg-[#050505] p-3 items-center justify-between">
+                            <div className="flex items-center gap-1.5 font-sans">
+                              <button
+                                type="button"
+                                onClick={() => setEditorViewMode("edit")}
+                                className={`px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest transition-all rounded-sm cursor-pointer ${editorViewMode === "edit" ? "bg-neutral-900 border border-neutral-800 text-neo-gold font-bold" : "text-neutral-400 hover:text-white bg-transparent"}`}
+                              >
+                                ✍️ Edit Mode
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditorViewMode("preview")}
+                                className={`px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest transition-all rounded-sm cursor-pointer ${editorViewMode === "preview" ? "bg-neutral-900 border border-neutral-800 text-neo-gold font-bold" : "text-neutral-400 hover:text-white bg-transparent"}`}
+                              >
+                                👁️ WYSIWYG Preview
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditorViewMode("split")}
+                                className={`hidden md:inline-flex px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest transition-all rounded-sm cursor-pointer ${editorViewMode === "split" ? "bg-neutral-900 border border-neutral-800 text-neo-gold font-bold" : "text-neutral-400 hover:text-white bg-transparent"}`}
+                              >
+                                🌗 Split Screen
+                              </button>
+                            </div>
+                            <div className="font-mono text-[8px] text-[#c3a05c] uppercase pr-2 tracking-widest hidden sm:block">
+                              {editorViewMode === "split" ? "SPLIT WORKSPACE ACTIVE" : editorViewMode === "preview" ? "WYSIWYG SIMULATION ACTIVE" : "MARKUP COMPOSING"}
+                            </div>
+                          </div>
+
+                          {/* POWERFUL WYSIWYG TOOLBAR FEATURES */}
+                          {(editorViewMode === "edit" || editorViewMode === "split") && (
+                            <div className="bg-[#090909] border-b border-neutral-900 p-3 flex flex-wrap gap-2 items-center">
+                              {/* Headings dropdown or distinct buttons */}
+                              <div className="flex items-center gap-1 border-r border-neutral-805 pr-2">
+                                <button type="button" onClick={() => insertMarkdownTag("h1")} className="px-2 py-1 text-[8px] font-mono font-bold uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Heading 1 H1">H1</button>
+                                <button type="button" onClick={() => insertMarkdownTag("h2")} className="px-2 py-1 text-[8px] font-mono font-bold uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Heading 2 H2">H2</button>
+                                <button type="button" onClick={() => insertMarkdownTag("h3")} className="px-2 py-1 text-[8px] font-mono font-bold uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Heading 3 H3">H3</button>
+                              </div>
+
+                              {/* Stylings */}
+                              <div className="flex items-center gap-1 border-r border-neutral-805 pr-2">
+                                <button type="button" onClick={() => insertMarkdownTag("bold")} className="px-2.5 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-200 hover:text-white rounded-xs font-bold cursor-pointer hover:border-neo-gold" title="Bold **">B</button>
+                                <button type="button" onClick={() => insertMarkdownTag("italic")} className="px-2.5 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-200 hover:text-white rounded-xs italic cursor-pointer hover:border-neo-gold" title="Italic *">I</button>
+                                <button type="button" onClick={() => insertMarkdownTag("underline")} className="px-2 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-200 hover:text-white rounded-xs underline cursor-pointer hover:border-neo-gold" title="Underline <u>">U</button>
+                                <button type="button" onClick={() => insertMarkdownTag("strikethrough")} className="px-2 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-200 hover:text-white rounded-xs line-through cursor-pointer hover:border-neo-gold" title="Strikethrough ~~">S</button>
+                              </div>
+
+                              {/* Structural Elements */}
+                              <div className="flex items-center gap-1 border-r border-neutral-805 pr-2">
+                                <button type="button" onClick={() => insertMarkdownTag("divider")} className="px-2 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-805 text-neutral-305 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Horizontal Divider ---">HR</button>
+                                <button type="button" onClick={() => insertMarkdownTag("blockquote")} className="px-2 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-805 text-neutral-305 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Blockquote >">Quote</button>
+                                <button type="button" onClick={() => insertMarkdownTag("bullet")} className="px-2 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-805 text-neutral-305 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Bulleted List -">Bullet</button>
+                                <button type="button" onClick={() => insertMarkdownTag("numbered")} className="px-2 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-805 text-neutral-305 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Numbered List 1.">Num</button>
+                              </div>
+
+                              {/* Media & Links */}
+                              <div className="flex items-center gap-1 border-r border-[#151515] pr-2">
+                                <button type="button" onClick={() => insertMarkdownTag("link")} className="px-2 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Insert Anchor Link">Link</button>
+                                <button type="button" onClick={() => insertMarkdownTag("image")} className="px-2 py-1 text-[8px] font-mono uppercase bg-black hover:bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white rounded-xs cursor-pointer hover:border-neo-gold" title="Embed Image Target">Image</button>
+                              </div>
+
+                              {/* Emoji Picker Fast Hotbar */}
+                              <div className="flex items-center gap-1 bg-neutral-950 px-2.5 py-1 rounded border border-neutral-900">
+                                <span className="font-mono text-[7px] text-neutral-500 uppercase tracking-widest mr-1">EMOJIS:</span>
+                                {["🔥", "💎", "✨", "🔌", "✅", "🛡️", "🚀", "💡", "🚨", "⭐️"].map((em) => (
+                                  <button
+                                    key={em}
+                                    type="button"
+                                    onClick={() => insertMarkdownTag(em)}
+                                    className="hover:scale-130 transition-transform text-[11px] cursor-pointer"
+                                  >
+                                    {em}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Embed Product Callout Quick button */}
+                              {blogIncludeProduct && blogFormFeaturedProduct && (
+                                <button 
+                                  type="button" 
+                                  onClick={() => insertMarkdownTag("affiliate-box")} 
+                                  className="px-3 py-1.5 text-[8px] font-mono uppercase bg-neo-gold text-black rounded-xs font-bold hover:bg-yellow-500 cursor-pointer ml-auto transition-colors flex items-center gap-1"
+                                >
+                                  🔌 INJECT AFFILIATE CALLBOX
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Split Editor / Textareas */}
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-0 bg-[#020202]">
+                            
+                            {/* Editor Panel */}
+                            {(editorViewMode === "edit" || editorViewMode === "split") && (
+                              <div className={`flex flex-col ${editorViewMode === "split" ? "md:col-span-6 border-r border-neutral-905" : "md:col-span-12"}`}>
+                                <textarea 
+                                  id="blog-content-textarea"
+                                  value={blogFormContent}
+                                  onChange={(e) => setBlogFormContent(e.target.value)}
+                                  rows={22}
+                                  placeholder={`Welcome to BuyerSpotted Curation platform. Add your detailed affiliate review content here.\n\nYou can use the editor toolbar to add structured Markdown style formatting, or paste normal text paragraphs.\n\nType '[Affiliate CTA Callout Block]' on a fresh line to render high-conversion call-to-actions linking your selected program product directly at that spot!`}
+                                  className="w-full bg-black/40 p-5 text-xs font-mono text-neutral-200 focus:outline-none focus:bg-black leading-relaxed resize-y min-h-[480px] border-none"
+                                />
+                              </div>
+                            )}
+
+                            {/* Simulated rendering panel */}
+                            {(editorViewMode === "preview" || editorViewMode === "split") && (
+                              <div className={`p-6 bg-neutral-950/25 flex flex-col overflow-y-auto max-h-[620px] ${editorViewMode === "split" ? "md:col-span-6" : "md:col-span-12"}`}>
+                                <div className="border-b border-neutral-900 pb-4 mb-5 text-left">
+                                  <span className="font-mono text-[7px] text-neo-gold uppercase tracking-widest font-bold block mb-1">LIVE DOCUMENT SIMULATION</span>
+                                  <h2 className="font-display font-medium text-sm md:text-base text-neutral-150 uppercase tracking-tight leading-snug">{blogFormTitle || "Draft Article Title Placeholder"}</h2>
+                                  <div className="flex gap-4 items-center font-mono text-[7px] text-neutral-550 uppercase mt-1">
+                                    <span>BY {blogFormAuthorName || "BuyerSpotted Desk"}</span>
+                                    <span>•</span>
+                                    <span>{blogFormCategory || "Health & Wellness"}</span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-4 text-left prose prose-invert max-w-none text-neutral-300">
+                                  {blogFormImageUrl && (
+                                    <div className="mb-4">
+                                      <img src={blogFormImageUrl} alt="Banner Preview" className="w-full h-32 md:h-44 object-cover rounded border border-neutral-900" referrerPolicy="no-referrer" />
+                                    </div>
+                                  )}
+                                  {(() => {
+                                    if (!blogFormContent.trim()) {
+                                      return (
+                                        <div className="text-center py-16 text-neutral-500 font-mono text-[9px] uppercase tracking-wider">
+                                          [ Compose words in the left panel to witness immediate live formatting ]
+                                        </div>
+                                      );
+                                    }
+
+                                    const lines = blogFormContent.split("\n");
+                                    return lines.map((line, bIdx) => {
+                                      return renderArticleLine(
+                                        line, 
+                                        bIdx, 
+                                        products, 
+                                        blogFormFeaturedProduct, 
+                                        blogFormCtaText, 
+                                        blogFormCtaLink
+                                      );
+                                    });
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+
+                          </div>
+
+                        </div>
+
+                        {/* Words count help bar */}
+                        <div className="bg-neutral-950 border border-neutral-900 rounded-lg p-4 font-mono text-[9px] text-neutral-500 uppercase tracking-wide leading-relaxed flex items-center justify-between">
+                          <span>💡 TIP: Type <strong className="text-neo-gold">[Affiliate CTA Callout Block]</strong> on any empty line to render the premium affiliate banner.</span>
+                          <span>{blogFormContent.trim().split(/\s+/).filter(Boolean).length} WORDS FOUND</span>
+                        </div>
+
+                      </div>
+
+                      {/* RIGHT COLUMN (30% Options Sidebar Component - Sticky) */}
+                      <div className="lg:col-span-4 lg:sticky lg:top-6 space-y-5">
+                        
+                        <div className="bg-neutral-950 border border-neutral-900 rounded-lg p-5 space-y-4">
+                          
+                          <div className="border-b border-neutral-900 pb-3">
+                            <span className="font-mono text-xs text-neo-gold uppercase tracking-widest font-bold">⚙️ SETTINGS CONSOLE</span>
+                            <span className="block font-mono text-[8px] text-neutral-500 uppercase mt-0.5">META PARAMETERS &amp; AFFILIATE GATEWAY</span>
+                          </div>
+
+                          {/* Title */}
+                          <div className="space-y-1">
+                            <label className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest block">Article Title *</label>
+                            <input 
+                              type="text"
+                              required
+                              value={blogFormTitle}
+                              onChange={(e) => {
+                                setBlogFormTitle(e.target.value);
+                                setBlogFormSlug(slugify(e.target.value));
+                              }}
+                              placeholder="e.g. Brain Optimization Guide"
+                              className="w-full bg-[#090909] border border-neutral-900 rounded-sm p-2 text-xs text-neutral-200 focus:outline-none focus:border-neo-gold"
+                            />
+                          </div>
+
+                          {/* Slug (Pristine Hyphenated read/write) */}
+                          <div className="space-y-1">
+                            <label className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest block">URL Slug (Automatic)</label>
+                            <input 
+                              type="text"
+                              value={blogFormSlug}
+                              onChange={(e) => setBlogFormSlug(slugify(e.target.value))}
+                              placeholder="e.g. brain-optimization-guide"
+                              className="w-full bg-[#090909]/65 border border-neutral-900 font-mono text-[#c3a05c] rounded-sm p-2 text-xs focus:outline-none focus:border-neo-gold"
+                            />
+                          </div>
+
+                          {/* Category (Pristine Select & Create Dynamic UI) */}
+                          <div className="space-y-2 border border-neutral-900 bg-neutral-950/40 p-3 rounded-sm">
+                            <div className="flex items-center justify-between">
+                              <label className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest block">Blog Category *</label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingNewBlogCategory(!isAddingNewBlogCategory);
+                                  setBlogCatError("");
+                                }}
+                                className="font-mono text-[8px] text-neo-gold hover:text-yellow-500 uppercase tracking-widest flex items-center gap-1 cursor-pointer transition-all"
+                              >
+                                {isAddingNewBlogCategory ? "✕ Close Creator" : "✚ Create Category"}
+                              </button>
+                            </div>
+
+                            {!isAddingNewBlogCategory ? (
+                              <div className="relative">
+                                <select
+                                  required
+                                  value={blogFormCategory}
+                                  onChange={(e) => setBlogFormCategory(e.target.value)}
+                                  className="w-full bg-[#090909] border border-neutral-900 rounded-sm p-2.5 text-xs text-neutral-200 focus:outline-none focus:border-neo-gold appearance-none cursor-pointer"
+                                >
+                                  {blogCategories.map((cat) => (
+                                    <option key={cat} value={cat} className="bg-black text-neutral-200">
+                                      {cat}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="absolute right-3 top-3 pointer-events-none text-neutral-500 text-[10px]">▼</div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2 pt-1 transition-all">
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={newBlogCategory}
+                                    onChange={(e) => setNewBlogCategory(e.target.value)}
+                                    placeholder="Enter new category name..."
+                                    className="flex-1 bg-[#090909] border border-neutral-900 rounded-sm p-2 text-xs text-white focus:outline-none focus:border-neo-gold"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleCreateBlogCategory(newBlogCategory);
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCreateBlogCategory(newBlogCategory)}
+                                    className="px-3.5 bg-neo-gold text-black hover:bg-yellow-500 font-mono text-[9px] uppercase tracking-wider rounded-sm font-bold cursor-pointer transition-colors"
+                                  >
+                                    Add
+                                  </button>
+                                </div>
+                                {blogCatError && (
+                                  <p className="font-mono text-[8px] text-red-500 uppercase tracking-wider mt-1">{blogCatError}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Author Name */}
+                          <div className="space-y-1">
+                            <label className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest block">Author Name</label>
+                            <input 
+                              type="text"
+                              value={blogFormAuthorName}
+                              onChange={(e) => setBlogFormAuthorName(e.target.value)}
+                              className="w-full bg-[#090909] border border-neutral-900 rounded-sm p-2 text-xs text-neutral-200 focus:outline-none focus:border-neo-gold"
+                            />
+                          </div>
+
+                          {/* Banner Image URL */}
+                          <div className="space-y-1">
+                            <label className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest block">Banner Image URL</label>
+                            <input 
+                              type="text"
+                              value={blogFormImageUrl}
+                              onChange={(e) => setBlogFormImageUrl(e.target.value)}
+                              placeholder="https://images.unsplash.com/promo..."
+                              className="w-full bg-[#090909] border border-neutral-900 rounded-sm p-2 text-xs text-neutral-200 focus:outline-none focus:border-neo-gold"
+                            />
+                          </div>
+
+                          {/* SEO Keywords */}
+                          <div className="space-y-1">
+                            <label className="font-mono text-[9px] text-neutral-405 uppercase tracking-widest block">SEO Keywords (Comma Separated)</label>
+                            <input 
+                              type="text"
+                              value={blogFormSeoKeywords}
+                              onChange={(e) => setBlogFormSeoKeywords(e.target.value)}
+                              placeholder="e.g. clickbank, supplementation, biohacking"
+                              className="w-full bg-[#090909] border border-neutral-900 rounded-sm p-2 text-xs text-neutral-200 focus:outline-none focus:border-neo-gold"
+                            />
+                          </div>
+
+                          {/* Audience Access Select Dropdown */}
+                          <div className="space-y-1">
+                            <label className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest block font-bold">Audience Access Rights</label>
+                            <select
+                              value={blogFormVisibility}
+                              onChange={(e) => setBlogFormVisibility(e.target.value as any)}
+                              className="w-full bg-neutral-950 border border-neutral-900 rounded-sm p-2 text-xs text-neutral-200 focus:outline-none focus:border-neo-gold cursor-pointer"
+                            >
+                              <option value="public">PUBLIC (All web researchers)</option>
+                              <option value="members">MEMBERS (Only authenticated logins)</option>
+                              <option value="admins">ADMINS (Only platform configurations team)</option>
+                            </select>
+                          </div>
+
+                          {/* Publication Status */}
+                          <div className="space-y-1 bg-[#050505] border border-neutral-900 p-3 rounded">
+                            <span className="font-mono text-[9px] text-neutral-400 uppercase tracking-widest block mb-1">Publication Status</span>
+                            <div className="flex flex-col gap-2 pt-1 font-sans">
+                              <label className="flex items-center gap-2 font-mono text-[9px] text-neutral-300 uppercase cursor-pointer">
+                                <input 
+                                  type="radio" 
+                                  name="blogStatus" 
+                                  checked={blogFormStatus === "published"} 
+                                  onChange={() => setBlogFormStatus("published")} 
+                                  className="accent-neo-gold h-3 w-3"
+                                />
+                                PUBLISHED (Live Curation Feed)
+                              </label>
+                              <label className="flex items-center gap-2 font-mono text-[9px] text-neutral-350 uppercase cursor-pointer">
+                                <input 
+                                  type="radio" 
+                                  name="blogStatus" 
+                                  checked={blogFormStatus === "draft"} 
+                                  onChange={() => setBlogFormStatus("draft")} 
+                                  className="accent-[#c3a05c] h-3 w-3"
+                                />
+                                SAVE AS WORKSPACE DRAFT
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Toggle Switch Include Product */}
+                          <div className="p-3 bg-[#090909] border border-neutral-900 rounded flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <span className="font-mono text-[9px] text-neo-gold uppercase tracking-widest font-bold block">🔌 LINK PRODUCT OFFER</span>
+                              <span className="font-mono text-[7px] text-neutral-500 uppercase">Include ClickBank affiliate CTA</span>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={blogIncludeProduct}
+                                onChange={(e) => {
+                                  setBlogIncludeProduct(e.target.checked);
+                                  if (!e.target.checked) {
+                                    setBlogFormFeaturedProduct("");
+                                  }
+                                }}
+                              />
+                              <div className="w-8 h-4.5 bg-neutral-900 border border-neutral-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-neutral-600 after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-neo-gold peer-checked:after:bg-black"></div>
+                            </label>
+                          </div>
+
+                          {/* Affiliate linkage settings box inside Right column */}
+                          {blogIncludeProduct && (
+                            <div className="p-3.5 bg-neutral-950 border border-neutral-900 rounded space-y-2.5 animate-in slide-in-from-top-2 duration-200 text-left">
+                              <div className="flex items-center justify-between border-b border-neutral-900 pb-1.5 font-sans">
+                                <span className="font-mono text-[8px] text-neo-gold uppercase tracking-widest font-bold">💎 VAULT MONETIZER</span>
+                              </div>
+                              
+                              <div className="space-y-1 font-sans">
+                                <label className="font-mono text-[7px] text-neutral-550 uppercase tracking-widest block">CURATED GATEWAY PRODUCT</label>
+                                <select
+                                  value={blogFormFeaturedProduct}
+                                  onChange={(e) => {
+                                    setBlogFormFeaturedProduct(e.target.value);
+                                    const matchingProd = products.find(p => p.id === e.target.value);
+                                    if (matchingProd) {
+                                      setBlogFormCtaLink(matchingProd.amazonUrl || matchingProd.clickbankUrl || "");
+                                      setBlogFormCtaText(`Access ${matchingProd.title} VIP Offer`);
+                                    }
+                                  }}
+                                  className="w-full bg-[#090909] border border-neutral-900 rounded-sm p-1.5 text-xs text-neutral-200 focus:outline-none focus:border-neo-gold cursor-pointer"
+                                >
+                                  <option value="">-- select high gravity clickbank item --</option>
+                                  {products.map((p) => {
+                                    return (
+                                      <option key={p.id} value={p.id}>
+                                        {p.title}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="font-mono text-[7px] text-neutral-550 uppercase tracking-widest block font-sans">VIP BUTTON CTA TEXT</label>
+                                <input 
+                                  type="text"
+                                  value={blogFormCtaText}
+                                  onChange={(e) => setBlogFormCtaText(e.target.value)}
+                                  placeholder="Check Discount Offer"
+                                  className="w-full bg-[#090909] border border-neutral-900 rounded-sm p-1.5 text-xs text-neutral-200 focus:outline-none focus:border-neo-gold"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="font-mono text-[7px] text-neutral-550 uppercase tracking-widest block font-sans">REDIRECT ROUTE HOPLINK</label>
+                                <input 
+                                  type="text"
+                                  value={blogFormCtaLink}
+                                  onChange={(e) => setBlogFormCtaLink(e.target.value)}
+                                  placeholder="https://hop.clickbank.net/..."
+                                  className="w-full bg-[#090909] border border-neutral-900 rounded-sm p-1.5 text-xs text-neutral-300 focus:outline-none focus:border-neo-gold"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Submit Actions Block inside Sidebar */}
+                          <div className="pt-2 border-t border-neutral-900 space-y-2">
+                            <button
+                              type="submit"
+                              disabled={isBlogSaving}
+                              className="w-full py-3 bg-[#c3a05c] hover:bg-yellow-600 disabled:bg-neutral-900 disabled:text-neutral-600 text-black font-semibold font-mono text-[9px] tracking-widest uppercase rounded-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-neo-gold/5"
+                            >
+                              {isBlogSaving ? (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> RECORDING TRANSACTION...
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="w-3 h-3" /> DEPLOY TO DATABASE
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsBlogFormOpen(false);
+                                setEditingPost(null);
+                                resetBlogForm();
+                              }}
+                              className="w-full py-2 border border-neutral-900 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900 font-mono text-[9px] uppercase tracking-wider rounded-sm cursor-pointer transition-all"
+                            >
+                              CANCEL WORKSPACE
+                            </button>
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+                  </form>
+                ) : (
+                  
+                  // Blog List Workspace Panel (Table View)
+                  <div className="bg-neutral-950 border border-neutral-900 rounded-lg p-6 space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-900 pb-4">
+                      <div>
+                        <h4 className="font-mono text-xs text-neo-gold uppercase tracking-widest font-bold">
+                          ACTIVE AFFILIATE REVIEWS DATABASE
+                        </h4>
+                        <p className="font-mono text-[9px] text-neutral-500 uppercase mt-1">
+                          Manage and polish articles directly tied to high performance click bank pipelines.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetBlogForm();
+                          setEditingPost(null);
+                          setIsBlogFormOpen(true);
+                        }}
+                        className="px-4 py-2.5 bg-neo-gold hover:bg-yellow-600 text-black font-semibold font-mono text-[9px] tracking-widest uppercase rounded-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                        id="btn-admin-new-blog"
+                      >
+                        <Edit className="w-3.5 h-3.5" /> WRITE COVETED SUMMARY PIECE
+                      </button>
+                    </div>
+
+                    {blogPosts.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-20 border border-dashed border-neutral-900 rounded">
+                        <Edit className="w-10 h-10 text-neutral-800 mb-3 animate-pulse" />
+                        <span className="font-mono text-xs text-neutral-500 uppercase tracking-wider">No Curation articles online</span>
+                        <p className="font-mono text-[9px] text-neutral-600 uppercase max-w-sm text-center mt-1">
+                          You haven't published any reviews yet. Write high-conversions summaries showing off targeted biological solutions.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse font-mono text-[10px]">
+                          <thead>
+                            <tr className="border-b border-neutral-900 bg-[#090909] uppercase text-[8px] text-neutral-500 font-bold">
+                              <th className="p-3">Status / Access</th>
+                              <th className="p-3">Title & Summary</th>
+                              <th className="p-3">Category</th>
+                              <th className="p-3">Author</th>
+                              <th className="p-3 text-right">Raw Clicks/Views</th>
+                              <th className="p-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-900/60">
+                            {blogPosts.map((post) => (
+                              <tr key={post.id} className="hover:bg-[#090909] transition-colors text-neutral-300">
+                                <td className="p-3 space-y-1">
+                                  <div className="flex items-center gap-1.5">
+                                    {post.status === "published" ? (
+                                      <span className="px-1.5 py-0.5 rounded-xs bg-emerald-950 border border-emerald-900 text-emerald-450 text-[7px] font-bold uppercase tracking-widest">
+                                        LIVE
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded-xs bg-amber-950 border border-amber-900 text-amber-450 text-[7px] font-bold uppercase tracking-widest">
+                                        DRAFT
+                                      </span>
+                                    )}
+                                    {post.visibility === "members" ? (
+                                      <span className="px-1.5 py-0.5 rounded-xs bg-indigo-950 border border-indigo-900 text-indigo-400 text-[7px] uppercase tracking-widest">
+                                        MEMBERS
+                                      </span>
+                                    ) : post.visibility === "admins" ? (
+                                      <span className="px-1.5 py-0.5 rounded-xs bg-rose-950 border border-rose-900 text-rose-450 text-[7px] uppercase tracking-widest">
+                                        ADMINS
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded-xs bg-[#111] border border-neutral-900 text-neutral-505 text-[7px] uppercase tracking-widest">
+                                        PUBLIC
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3 max-w-xs font-semibold">
+                                  <span className="truncate block text-neutral-200" title={post.title}>
+                                    {post.title}
+                                  </span>
+                                  <span className="block text-[8px] text-neutral-500 lowercase mt-0.5 italic">
+                                    /blog/{post.slug}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-neutral-400 uppercase tracking-widest text-[9px]">
+                                  {post.category}
+                                </td>
+                                <td className="p-3 text-neutral-500">
+                                  {post.authorName}
+                                </td>
+                                <td className="p-3 text-right text-neo-gold font-bold">
+                                  {post.viewCount || 0}
+                                </td>
+                                <td className="p-3">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditBlogPost(post)}
+                                      className="py-1 px-2 border border-neutral-808 hover:border-[#c3a05c] hover:text-neo-gold bg-[#090909] text-neutral-400 rounded-sm font-semibold transition-all cursor-pointer"
+                                      title="Edit review post"
+                                    >
+                                      EDIT
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBlogConfirmDeleteId(post.id)}
+                                      className="py-1 px-2 border border-neutral-808 hover:border-rose-950 hover:text-rose-450 bg-[#090909] text-neutral-500 rounded-sm transition-all cursor-pointer"
+                                      title="Delete review post"
+                                    >
+                                      PURGE
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Add Product Form */}
@@ -2404,13 +4578,28 @@ export default function App() {
                     <div>
                       <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
                         <span>SEO Headline</span>
-                        <span className="text-[8px] text-neo-gold lowercase italic">optional but recommended</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic font-light">optional but recommended</span>
                       </label>
                       <input 
                         type="text"
                         value={formSeoHeadline}
                         onChange={(e) => setFormSeoHeadline(e.target.value)}
                         placeholder="e.g., Discover Your True Path with a Personalized Moon Reading"
+                        className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[9px] text-neutral-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span>Category *</span>
+                        <span className="text-[8px] text-neo-gold lowercase italic">target classification</span>
+                      </label>
+                      <input 
+                        type="text"
+                        required
+                        value={formCategory}
+                        onChange={(e) => setFormCategory(e.target.value)}
+                        placeholder="e.g., ClickBank Curated, Verified Bio-Formulations, Metabolic Mastery..."
                         className="w-full bg-[#070707] border border-neutral-900 focus:border-neo-gold rounded p-2.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-700 outline-none transition-colors"
                       />
                     </div>
@@ -2599,19 +4788,22 @@ export default function App() {
               <div className="absolute top-0 right-0 w-96 h-96 bg-neo-gold/5 rounded-full blur-3xl -z-10 animate-pulse"></div>
               <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-neutral-900/40 rounded-full blur-3xl -z-10"></div>
               
-              <div className="max-w-3xl">
+              <div className="max-w-4xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-900 border border-neutral-800 rounded-full font-mono text-[9px] tracking-widest text-[#c3a05c] uppercase mb-5">
-                  <Sparkles className="w-3 h-3 text-neo-gold" /> Curated Life & Performance Essentials
+                  <ShieldCheck className="w-3 h-3 text-neo-gold" /> Verified Curation Network
                 </div>
                 
-                <h2 className="font-display text-4xl md:text-6xl font-extralight tracking-tight text-neutral-100 leading-tight mb-5">
-                  The Pursuit of <br />
-                  <span className="font-semibold bg-gradient-to-r from-[#c3a05c] via-yellow-500 to-amber-200 bg-clip-text text-transparent">Peak Performance.</span>
+                <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-extralight tracking-tight text-neutral-100 leading-tight mb-5">
+                  The Blueprint Archive: <br />
+                  <span className="font-semibold bg-gradient-to-r from-[#c3a05c] via-yellow-500 to-amber-200 bg-clip-text text-transparent">Definitively Vetted Formulations for Peak Human Optimization.</span>
                 </h2>
                 
-                <p className="text-sm md:text-lg text-neutral-400 font-light leading-relaxed mb-8 max-w-xl">
-                  We explore, analyze, and review elite wellness breakthroughs and mental performance systems. No sales pitches, no jargon—just independent honest reviews of best-in-class solutions.
-                </p>
+                <div className="bg-[#090909]/65 border border-neutral-900/85 rounded-lg p-5 flex items-start gap-4 my-6 max-w-2xl">
+                  <ShieldCheck className="w-5 h-5 text-neo-gold shrink-0 mt-0.5 animate-pulse" />
+                  <p className="text-xs md:text-sm text-neutral-400 leading-relaxed font-light">
+                    Navigating here from <strong>TikTok or YouTube</strong>? Every link on our platform routes exclusively through encrypted, direct-to-manufacturer secure gateways to protect you from lookalike domain scams.
+                  </p>
+                </div>
 
                 <div className="flex flex-wrap gap-4">
                   <a 
@@ -2641,80 +4833,87 @@ export default function App() {
                 <p className="text-xs text-neutral-500 font-light mt-1">Select a core milestone objective. Our curation engine will isolate the highest performing reviews for your path.</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Option 1: Brain */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Option 1: Metabolic Efficiency */}
                 <button
                   type="button"
-                  onClick={() => setSelectedGoal(selectedGoal === "brain" ? null : "brain")}
+                  onClick={() => {
+                    const goal = selectedGoal === "metabolic" ? null : "metabolic";
+                    setSelectedGoal(goal);
+                    if (goal) {
+                      setTimeout(() => {
+                        document.getElementById("catalog-view")?.scrollIntoView({ behavior: "smooth" });
+                      }, 100);
+                    }
+                  }}
                   className={`p-5 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between h-36 cursor-pointer ${
-                    selectedGoal === "brain"
+                    selectedGoal === "metabolic"
                       ? "border-neo-gold bg-[#c3a05c]/5 text-neo-gold ring-1 ring-neo-gold"
                       : "border-neutral-900 hover:border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200"
                   }`}
                 >
                   <div>
-                    <span className="text-lg mb-2 block">🧠</span>
-                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Cognitive Fitness</h4>
+                    <span className="text-lg mb-2 block font-normal">🔥</span>
+                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Metabolic Efficiency</h4>
                   </div>
-                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Boost brainpower, memory recall, active focus, and mental flow states.</p>
+                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Caloric acceleration, resting metabolic rate support, and systematic cellular energy production.</p>
                 </button>
 
-                {/* Option 2: Sleep */}
+                {/* Option 2: Cognitive Longevity */}
                 <button
                   type="button"
-                  onClick={() => setSelectedGoal(selectedGoal === "sleep" ? null : "sleep")}
+                  onClick={() => {
+                    const goal = selectedGoal === "cognitive" ? null : "cognitive";
+                    setSelectedGoal(goal);
+                    if (goal) {
+                      setTimeout(() => {
+                        document.getElementById("catalog-view")?.scrollIntoView({ behavior: "smooth" });
+                      }, 100);
+                    }
+                  }}
                   className={`p-5 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between h-36 cursor-pointer ${
-                    selectedGoal === "sleep"
+                    selectedGoal === "cognitive"
                       ? "border-neo-gold bg-[#c3a05c]/5 text-neo-gold ring-1 ring-neo-gold"
-                      : "border-neutral-900 hover:border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200"
+                      : "border-neutral-900 hover:border-neutral-800 bg-[#050505] text-neutral-400 hover:text-neutral-200"
                   }`}
                 >
                   <div>
-                    <span className="text-lg mb-2 block">💤</span>
-                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Sleep & Restoration</h4>
+                    <span className="text-lg mb-2 block font-normal">🧠</span>
+                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Cognitive Longevity</h4>
                   </div>
-                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Reduce sleep latency, enhance recovery parameters, and deeply restore biological cells.</p>
+                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Nootropic optimization, active memory recall, and deep-focus mental state preservation.</p>
                 </button>
 
-                {/* Option 3: Energy */}
+                {/* Option 3: Neurological Tuning */}
                 <button
                   type="button"
-                  onClick={() => setSelectedGoal(selectedGoal === "energy" ? null : "energy")}
+                  onClick={() => {
+                    const goal = selectedGoal === "neurological" ? null : "neurological";
+                    setSelectedGoal(goal);
+                    if (goal) {
+                      setTimeout(() => {
+                        document.getElementById("catalog-view")?.scrollIntoView({ behavior: "smooth" });
+                      }, 100);
+                    }
+                  }}
                   className={`p-5 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between h-36 cursor-pointer ${
-                    selectedGoal === "energy"
+                    selectedGoal === "neurological"
                       ? "border-neo-gold bg-[#c3a05c]/5 text-neo-gold ring-1 ring-neo-gold"
-                      : "border-neutral-900 hover:border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200"
+                      : "border-neutral-900 hover:border-neutral-800 bg-[#050505]/50 text-neutral-400 hover:text-neutral-200"
                   }`}
                 >
                   <div>
-                    <span className="text-lg mb-2 block">⚡</span>
-                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Natural Energy</h4>
+                    <span className="text-lg mb-2 block font-normal">🎧</span>
+                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Neurological Tuning</h4>
                   </div>
-                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Sustain daily cellular vigor, optimize metabolic rate, and eliminate fatigue spikes.</p>
-                </button>
-
-                {/* Option 4: Longevity */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedGoal(selectedGoal === "longevity" ? null : "longevity")}
-                  className={`p-5 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between h-36 cursor-pointer ${
-                    selectedGoal === "longevity"
-                      ? "border-neo-gold bg-[#c3a05c]/5 text-neo-gold ring-1 ring-neo-gold"
-                      : "border-neutral-900 hover:border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200"
-                  }`}
-                >
-                  <div>
-                    <span className="text-lg mb-2 block">🌱</span>
-                    <h4 className="font-display font-medium text-sm text-neutral-200 mb-1">Longevity & Cells</h4>
-                  </div>
-                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Guard systemic biological structures, support longevity markers, and shield cellular health.</p>
+                  <p className="text-[11px] text-neutral-500 font-light leading-snug">Acoustic neural-frequency directives, mental abundance calibration, and cognitive brainwave alignment.</p>
                 </button>
               </div>
 
               {selectedGoal && (
                 <div className="mt-4 flex items-center justify-between border-t border-neutral-900 pt-4 animate-in fade-in slide-in-from-top-1">
                   <span className="font-mono text-[10px] text-neo-gold uppercase tracking-wider flex items-center gap-1.5 font-semibold">
-                    <Check className="w-3.5 h-3.5 shrink-0" /> Target focus set to: {selectedGoal === "brain" ? "Cognitive Fitness" : selectedGoal === "sleep" ? "Sleep & Restoration" : selectedGoal === "energy" ? "Natural Energy" : "Longevity & Cells"}
+                    <Check className="w-3.5 h-3.5 shrink-0" /> Target focus set to: {selectedGoal === "cognitive" ? "Cognitive Longevity" : selectedGoal === "metabolic" ? "Metabolic Efficiency" : selectedGoal === "neurological" ? "Neurological Tuning" : selectedGoal}
                   </span>
                   <button
                     type="button"
@@ -2752,10 +4951,10 @@ export default function App() {
                       }`}
                     >
                       {cat === "All" 
-                        ? "ALL SCHEMAS" 
+                        ? "ALL BLUEPRINTS" 
                         : cat === "ClickBank Curated" 
-                          ? "BRAIN & MENTAL PERFORMANCE" 
-                          : cat}
+                          ? "ELITE BIOLOGICAL FORMULATIONS" 
+                          : cat.toUpperCase()}
                     </button>
                   ))}
                 </div>
@@ -2773,7 +4972,7 @@ export default function App() {
                 <div className="text-center py-24 border border-dashed border-neutral-900 rounded-lg">
                   <Sliders className="w-8 h-8 text-neutral-600 mx-auto mb-4 animate-pulse" />
                   <p className="font-mono text-[10px] tracking-widest text-[#c3a05c] uppercase">No curations matched</p>
-                  <p className="font-mono text-[9px] text-neutral-500 mt-2 uppercase">Try resetting your optimization goal filter above to browse other dynamic pieces.</p>
+                  <p className="font-mono text-[9px] text-neutral-550 mt-2 uppercase">Try resetting your optimization goal filter above to browse other dynamic pieces.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2804,7 +5003,7 @@ export default function App() {
 
                           {/* Category Badge */}
                           <span className="font-mono text-[8px] uppercase tracking-wider text-neo-gold font-bold block mb-1">
-                            {p.category === "ClickBank Curated" ? "COGNITIVE RESTORATION" : p.category.toUpperCase()}
+                            {p.category === "ClickBank Curated" ? "VERIFIED BIO-FORMULATION" : p.category.toUpperCase()}
                           </span>
 
                           {/* Title */}
@@ -2812,19 +5011,63 @@ export default function App() {
                             {p.title}
                           </h4>
 
-                          {/* Quick intro summary */}
-                          <p className="text-[11px] text-neutral-400 font-light line-clamp-2 leading-relaxed mb-4">
-                            {p.description || "Expert curated piece exploring systemic health optimization and practical lifestyle integration techniques."}
-                          </p>
+                          {/* Scientific Reason "Why It Works" */}
+                          {(() => {
+                            const rawWhyItWorks = p.whyItWorks || p.why_it_works || "";
+                            const hasWhyItWorks = rawWhyItWorks.trim().length > 0;
+                            const textToUse = hasWhyItWorks 
+                              ? rawWhyItWorks 
+                              : getProductAestheticDescription(p);
+                            
+                            const maxChars = 140;
+                            const isLong = textToUse.length > maxChars;
+                            const isExpanded = expandedCards[p.id] || false;
+                            
+                            const displayText = isLong && !isExpanded 
+                              ? textToUse.slice(0, maxChars - 10) + "..." 
+                              : textToUse;
+
+                            return (
+                              <div className="mb-4 min-h-[4.5rem] flex flex-col justify-between">
+                                <p className="text-[11px] text-neutral-400 font-light leading-relaxed">
+                                  {displayText}
+                                </p>
+                                {isLong && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedCards(prev => ({
+                                        ...prev,
+                                        [p.id]: !isExpanded
+                                      }));
+                                    }}
+                                    className="self-start text-[#c3a05c] hover:text-[#e4be75] font-mono text-[9px] mt-1.5 uppercase tracking-wider font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                  >
+                                    <span>{isExpanded ? "Show Less [-]" : "Read More [+]"}</span>
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
 
-                        {/* READ REVIEW Button */}
-                        <div className="pt-3 border-t border-neutral-900 flex justify-end">
+                        {/* DEPLOY FULL LAB ANALYSIS Button */}
+                        <div className="pt-3 border-t border-neutral-900 w-full">
                           <button
-                            className="w-full px-3 py-2 border border-neutral-800 text-neutral-400 group-hover:border-neo-gold group-hover:text-[#050505] group-hover:bg-neo-gold transition-all font-mono text-[9px] tracking-widest uppercase rounded-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigateToProduct(p.title);
+                            }}
+                            className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-800 text-neutral-300 group-hover:border-neo-gold group-hover:text-black group-hover:bg-neo-gold transition-all font-mono text-[9px] font-bold tracking-widest uppercase rounded-sm flex items-center justify-center gap-1 cursor-pointer"
                           >
-                            <span>Read Review</span>
-                            <ArrowUpRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                            <span>
+                              {(() => {
+                                const isLast3Added = products.slice(0, 3).some(latest => latest.id === p.id);
+                                return isLast3Added ? "READ REVIEW" : "DEPLOY FULL LAB ANALYSIS →";
+                              })()}
+                            </span>
                           </button>
                         </div>
                       </motion.article>
@@ -2832,6 +5075,108 @@ export default function App() {
                   })}
                 </div>
               )}
+            </section>
+
+            {/* Curated Target Architecture Pipelines / Category Cards */}
+            <section className="mb-24 border-t border-neutral-900 pt-16">
+              <div className="mb-10 text-center md:text-left">
+                <h3 className="font-display font-semibold text-lg md:text-xl tracking-wider uppercase text-neutral-200">
+                  Explore Categories
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {(Array.from(new Set(products.map((p) => p.category || "ClickBank Curated").filter(Boolean))) as string[]).map((catName) => {
+                  const details = getCategoryDetails(catName);
+                  const count = products.filter((p) => (p.category || "ClickBank Curated") === catName).length;
+
+                  return (
+                    <motion.div
+                      key={catName}
+                      whileHover={{ y: -5 }}
+                      transition={{ duration: 0.2 }}
+                      onClick={() => navigateToCategory(catName)}
+                      className="group bg-neutral-950/80 border border-neutral-900 hover:border-neo-gold/30 rounded-lg overflow-hidden cursor-pointer flex flex-col justify-between h-80 relative transition-all"
+                    >
+                      {/* Styled Dynamic Tech Frame (No images, premium click-product design with responsive accent glow) */}
+                      <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-[#0e0e0e] border-b border-neutral-900/60 flex items-center justify-center p-6 bg-size-custom">
+                        {/* Radial Glow corresponding to the category accent */}
+                        <div 
+                          className="absolute inset-0 opacity-10 blur-2xl rounded-full scale-90 select-none pointer-events-none transition-opacity duration-300 group-hover:opacity-25"
+                          style={{ 
+                            background: `radial-gradient(circle, ${details.accent} 0%, transparent 70%)` 
+                          }}
+                        />
+                        {/* Blueprint grid overlay */}
+                        <div className="absolute inset-0 opacity-[0.02] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:10px_10px]" />
+                        
+                        {/* Stylized tactile schematic design with custom icon and colors */}
+                        <div className="relative z-10 flex flex-col items-center justify-center text-center">
+                          <div 
+                            className="w-12 h-12 rounded-full border flex items-center justify-center mb-2.5 shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:bg-[#141414]"
+                            style={{ 
+                              borderColor: `${details.accent}40`,
+                              background: `linear-gradient(135deg, ${details.accent}12, ${details.accent}03)`,
+                              color: details.accent
+                            }}
+                          >
+                            {/* Visual iconic identifier */}
+                            {(() => {
+                              const titleLower = catName.toLowerCase();
+                              if (titleLower.includes("sleep") || titleLower.includes("rest") || titleLower.includes("night")) {
+                                return <Clock className="w-5 h-5" />;
+                              } else if (titleLower.includes("neural") || titleLower.includes("brain") || titleLower.includes("astrology") || titleLower.includes("mind") || titleLower.includes("focus")) {
+                                return <Cpu className="w-5 h-5 animate-pulse" />;
+                              } else if (titleLower.includes("metabolic") || titleLower.includes("fat") || titleLower.includes("weight") || titleLower.includes("slim") || titleLower.includes("diet") || titleLower.includes("sugar")) {
+                                return <Zap className="w-5 h-5" />;
+                              } else if (titleLower.includes("craft") || titleLower.includes("diy") || titleLower.includes("woodworking") || titleLower.includes("plan")) {
+                                return <Sliders className="w-5 h-5" />;
+                              } else {
+                                return <Layers className="w-5 h-5" />;
+                              }
+                            })()}
+                          </div>
+                          <span 
+                            className="font-mono text-[9px] tracking-widest uppercase font-semibold transition-colors mt-0.5 text-center px-2"
+                            style={{ color: details.accent }}
+                          >
+                            {catName}
+                          </span>
+                        </div>
+
+                        {/* Top corner category count tag */}
+                        <span 
+                          className="absolute top-4 right-4 px-2.5 py-0.5 font-mono text-[8px] tracking-wider text-black rounded-sm font-semibold uppercase"
+                          style={{ backgroundColor: details.accent }}
+                        >
+                          {count} {count === 1 ? "Element" : "Elements"}
+                        </span>
+                      </div>
+
+                      {/* Info details */}
+                      <div className="p-6 flex-1 flex flex-col justify-between">
+                        <div>
+                          <h4 className="font-display font-semibold text-sm text-neutral-200 group-hover:text-neo-gold transition-colors block mb-2 uppercase tracking-wide">
+                            {details.title || catName}
+                          </h4>
+                          <p className="text-[11px] text-neutral-400 font-light leading-relaxed line-clamp-3">
+                            {details.desc}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-neutral-900/40 mt-3 text-[9px]">
+                          <span className="font-mono uppercase tracking-widest text-[#c3a05c] group-hover:text-neo-gold font-semibold transition-colors">
+                            View Products
+                          </span>
+                          <span className="text-neutral-500 group-hover:text-neo-gold transition-colors font-mono">
+                            →
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </section>
 
             {/* Why BuyerSpotted section (Humanized & Professional Trust Stack) */}

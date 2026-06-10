@@ -58,3 +58,23 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
 }
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  category: string;
+  status: 'draft' | 'published';
+  visibility: 'public' | 'admins' | 'members';
+  seoKeywords?: string;
+  readingTime?: number;
+  ctaText?: string;
+  ctaLink?: string;
+  imageUrl?: string;
+  authorName?: string;
+  viewCount: number;
+  featuredProductId?: string; // tie to specific product
+  createdAt: any;
+  updatedAt: any;
+}

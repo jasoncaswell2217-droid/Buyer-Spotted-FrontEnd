@@ -129,6 +129,99 @@
         }
       },
       "required": ["startTime", "lastActiveTime", "duration", "pagesVisited", "userAgent"]
+    },
+    "BlogPost": {
+      "title": "BlogPost",
+      "description": "Rich affiliate marketing blog posts created by the administrator.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title of the blog post."
+        },
+        "slug": {
+          "type": "string",
+          "description": "Custom or auto-generated SEO-friendly URL slug."
+        },
+        "content": {
+          "type": "string",
+          "description": "Markdown, HTML, or Rich text content of the article."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category for the post e.g. Wellness, DIY."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "published"],
+          "description": "Draft or fully published state."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "admins", "members"],
+          "description": "Restrictive access configuration."
+        },
+        "seoKeywords": {
+          "type": "string",
+          "description": "Target keywords for SEO optimisation."
+        },
+        "readingTime": {
+          "type": "integer",
+          "description": "Estimated time to read in minutes."
+        },
+        "ctaText": {
+          "type": "string",
+          "description": "Call to action button label."
+        },
+        "ctaLink": {
+          "type": "string",
+          "description": "Affiliate Hoplink associated with the CTA button."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Article featured banner URL."
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Author displaying handle."
+        },
+        "viewCount": {
+          "type": "integer",
+          "description": "Dynamic tracking code view counter."
+        },
+        "featuredProductId": {
+          "type": "string",
+          "description": "Optionally tied to an underlying curated product ID."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Post custom creation stamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Post last updated action stamp."
+        }
+      },
+      "required": ["title", "slug", "content", "category", "status", "visibility", "createdAt", "updatedAt"]
+    },
+    "BlogCategory": {
+      "title": "BlogCategory",
+      "description": "Custom category definitions specifically for blog posts.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The custom name of the blog category."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp of the blog category."
+        }
+      },
+      "required": ["name", "createdAt"]
     }
   },
   "firestore": {
@@ -147,6 +240,14 @@
     "sessions/{sessionId}": {
       "schema": "Session",
       "description": "Visitor analytics session tracking."
+    },
+    "blogPosts/{postId}": {
+      "schema": "BlogPost",
+      "description": "Rich blog reviews and marketing content repository."
+    },
+    "blogCategories/{categoryId}": {
+      "schema": "BlogCategory",
+      "description": "Blog categories configured by the Administrator."
     }
   }
 }

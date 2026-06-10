@@ -87,6 +87,33 @@ service cloud.firestore {
         && data.userAgent is string;
     }
 
+    // Helper: validate blog post structure
+    function isValidBlogPost(data) {
+      return data.keys().hasAll(['title', 'slug', 'content', 'category', 'status', 'visibility', 'createdAt', 'updatedAt'])
+        && data.keys().size() >= 8 && data.keys().size() <= 16
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 1000
+        && data.slug is string && data.slug.size() > 0 && data.slug.size() <= 500
+        && data.content is string && data.content.size() <= 100000
+        && data.category is string && data.category.size() <= 200
+        && data.status is string && (data.status == 'draft' || data.status == 'published')
+        && data.visibility is string && (data.visibility == 'public' || data.visibility == 'admins' || data.visibility == 'members')
+        && (!data.keys().hasAll(['seoKeywords']) || (data.seoKeywords is string && data.seoKeywords.size() <= 1000))
+        && (!data.keys().hasAll(['readingTime']) || data.readingTime is int)
+        && (!data.keys().hasAll(['ctaText']) || (data.ctaText is string && data.ctaText.size() <= 500))
+        && (!data.keys().hasAll(['ctaLink']) || (data.ctaLink is string && data.ctaLink.size() <= 2048))
+        && (!data.keys().hasAll(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 2048))
+        && (!data.keys().hasAll(['authorName']) || (data.authorName is string && data.authorName.size() <= 200))
+        && (!data.keys().hasAll(['viewCount']) || data.viewCount is int)
+        && (!data.keys().hasAll(['featuredProductId']) || (data.featuredProductId is string && data.featuredProductId.size() <= 128));
+    }
+
+    // Helper: validate blog category structure
+    function isValidBlogCategory(data) {
+      return data.keys().hasAll(['name', 'createdAt'])
+        && data.keys().size() == 2
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100;
+    }
+
     // Rules for User documents
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -144,6 +171,32 @@ service cloud.firestore {
       allow create, update: if isValidId(sessionId)
         && isValidSession(incoming());
       allow delete: if isAdmin();
+    }
+
+    // Rules for Blog Post documents
+    match /blogPosts/{postId} {
+      allow get: if (resource.data.status == 'published' && (resource.data.visibility == 'public' || (resource.data.visibility == 'members' && isSignedIn()))) || isAdmin();
+      allow list: if resource.data.status == 'published' || isAdmin();
+      
+      allow create: if isAdmin()
+        && isValidId(postId)
+        && isValidBlogPost(incoming())
+        && incoming().createdAt == request.time;
+        
+      allow update: if (isAdmin() && isValidBlogPost(incoming()))
+        || (isValidId(postId) && (incoming().diff(existing()).affectedKeys().hasOnly(['viewCount']) && incoming().viewCount == existing().viewCount + 1));
+        
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Blog Category documents
+    match /blogCategories/{categoryId} {
+      allow get, list: if true;
+      allow create: if isAdmin()
+        && isValidId(categoryId)
+        && isValidBlogCategory(incoming())
+        && incoming().createdAt == request.time;
+      allow update, delete: if isAdmin();
     }
   }
 }

@@ -1,462 +1,442 @@
 [
   {
-    "title": "Puravive",
+    "title": "YU SLEEP",
     "funnel_angle": "VSL",
-    "avg_per_conversion": 120.5,
-    "gravity_score": 150.4,
-    "affiliate_tools_url": "https://puravive.com/affiliates",
-    "seo_headline": "The Exotic Rice Hack for Healthy Weight Loss",
-    "who_it_is_for": "Individuals looking for a natural way to boost brown adipose tissue and lose weight.",
-    "why_it_works": "Uses a unique blend of 8 exotic nutrients to target the root cause of unexplained weight gain.",
+    "avg_per_conversion": "$125.00",
+    "gravity_score": 116.3,
+    "affiliate_tools_url": "https://yusleep.com/affiliates",
+    "seo_headline": "Fall Asleep Faster and Stay Asleep with YU SLEEP",
+    "who_it_is_for": "Individuals struggling with insomnia or poor sleep quality.",
+    "why_it_works": "Scientific blend of natural ingredients targeting REM cycles.",
     "seo_keywords": [
-      "weight loss hack",
-      "puravive review",
-      "brown adipose tissue"
-    ],
-    "is_subscription": false,
-    "refund_window": "180-Day",
-    "included_features": [
-      "Natural ingredients",
-      "Easy-to-swallow capsules",
-      "Manufactured in FDA-registered facility"
-    ],
-    "category": "Health & Fitness"
-  },
-  {
-    "title": "Java Burn",
-    "funnel_angle": "VSL",
-    "avg_per_conversion": 115.0,
-    "gravity_score": 200.1,
-    "affiliate_tools_url": "https://javaburn.com/affiliates",
-    "seo_headline": "Ignite Your Metabolism with Your Morning Coffee",
-    "who_it_is_for": "Coffee lovers who want to increase their metabolic rate and energy levels.",
-    "why_it_works": "A tasteless powder that dissolves instantly in coffee to optimize metabolism through nutritional synergy.",
-    "seo_keywords": [
-      "java burn coffee",
-      "metabolism booster",
-      "coffee weight loss"
-    ],
-    "is_subscription": false,
-    "refund_window": "60-Day",
-    "included_features": [
-      "Tasteless and odorless",
-      "Vegetarian and Non-GMO",
-      "Works with any coffee"
-    ],
-    "category": "Health & Fitness"
-  },
-  {
-    "title": "Sugar Defender",
-    "funnel_angle": "VSL",
-    "avg_per_conversion": 110.0,
-    "gravity_score": 185.5,
-    "affiliate_tools_url": "https://sugardefender.com/affiliates",
-    "seo_headline": "Support Healthy Blood Sugar Levels Naturally",
-    "who_it_is_for": "People concerned about blood sugar fluctuations and energy stability.",
-    "why_it_works": "A powerful formula of plant-based ingredients designed to support glucose metabolism.",
-    "seo_keywords": [
-      "blood sugar support",
-      "sugar defender reviews",
-      "natural energy boost"
-    ],
-    "is_subscription": false,
-    "refund_window": "60-Day",
-    "included_features": [
-      "Plant-based formula",
-      "No stimulants",
-      "Easy to use liquid drops"
-    ],
-    "category": "Health & Fitness"
-  },
-  {
-    "title": "Billionaire Brain Wave",
-    "funnel_angle": "VSL",
-    "avg_per_conversion": 45.0,
-    "gravity_score": 182.3,
-    "affiliate_tools_url": "https://billionairebrainwave.com/affiliates",
-    "seo_headline": "Activate Your 'Billionaire' Brain Wave in 7 Minutes",
-    "who_it_is_for": "Those interested in manifestation, wealth attraction, and brain frequency optimization.",
-    "why_it_works": "A simple audio track that uses sound frequencies to stimulate the hippocampus and theta waves.",
-    "seo_keywords": [
-      "manifestation audio",
-      "billionaire brain wave",
-      "theta wave activation"
-    ],
-    "is_subscription": false,
-    "refund_window": "90-Day",
-    "included_features": [
-      "7-minute daily audio",
-      "Instant digital access",
-      "Bonus manifestation guides"
-    ],
-    "category": "Spirituality"
-  },
-  {
-    "title": "Moon Reading",
-    "funnel_angle": "Quiz",
-    "avg_per_conversion": 25.0,
-    "gravity_score": 145.8,
-    "affiliate_tools_url": "https://moonreading.com/affiliates",
-    "seo_headline": "What Does Your Moon Sign Say About Your Future?",
-    "who_it_is_for": "Astrology enthusiasts seeking personalized insights into their personality and path.",
-    "why_it_works": "High-converting quiz funnel that provides a free personalized video reading based on birth details.",
-    "seo_keywords": [
-      "personalized moon reading",
-      "astrology quiz",
-      "birth chart analysis"
+      "sleep aid",
+      "insomnia remedy",
+      "natural sleep supplement"
     ],
     "is_subscription": true,
     "refund_window": "60-Day",
     "included_features": [
-      "Personalized video report",
-      "Deep personality analysis",
-      "Daily horoscope updates"
+      "Natural Ingredients",
+      "Clinically Proven Formula",
+      "Fast-Acting Liquid"
+    ]
+  },
+  {
+    "title": "Moon Reading",
+    "funnel_angle": "Quiz",
+    "avg_per_conversion": "$25.00",
+    "gravity_score": 69.8,
+    "affiliate_tools_url": "https://www.moonreading.com/affiliate",
+    "seo_headline": "Unlock Your Cosmic Destiny with a Free Moon Reading",
+    "who_it_is_for": "Spiritual seekers and astrology enthusiasts.",
+    "why_it_works": "Personalized quiz creates high engagement and curiosity.",
+    "seo_keywords": [
+      "moon reading",
+      "astrology quiz",
+      "birth chart"
     ],
-    "category": "Spirituality"
+    "is_subscription": false,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Personalized Video",
+      "Deep Natal Analysis",
+      "Instant Access"
+    ]
   },
   {
     "title": "TedsWoodworking",
-    "funnel_angle": "Brand Redirect",
-    "avg_per_conversion": 65.0,
-    "gravity_score": 81.6,
-    "affiliate_tools_url": "https://tedswoodworking.com/affiliates",
-    "seo_headline": "Access 16,000 Woodworking Plans for Any Project",
-    "who_it_is_for": "DIYers and woodworkers of all skill levels looking for detailed project guides.",
-    "why_it_works": "Massive database of step-by-step plans with high-quality diagrams and material lists.",
+    "funnel_angle": "E-commerce",
+    "avg_per_conversion": "$55.00",
+    "gravity_score": 82.2,
+    "affiliate_tools_url": "https://www.tedswoodworking.com/affiliates",
+    "seo_headline": "16,000 Woodworking Plans for Every Project",
+    "who_it_is_for": "DIY enthusiasts and professional woodworkers.",
+    "why_it_works": "Massive library of plans provides unbeatable value for money.",
     "seo_keywords": [
       "woodworking plans",
-      "DIY project guides",
-      "16000 plans"
+      "DIY furniture",
+      "carpentry blueprints"
     ],
     "is_subscription": false,
     "refund_window": "60-Day",
     "included_features": [
-      "16,000+ detailed plans",
-      "Step-by-step instructions",
-      "Material and tool lists"
-    ],
-    "category": "Home & Garden"
-  },
-  {
-    "title": "Prostadine",
-    "funnel_angle": "VSL",
-    "avg_per_conversion": 135.0,
-    "gravity_score": 162.1,
-    "affiliate_tools_url": "https://prostadine.com/affiliates",
-    "seo_headline": "Support Prostate Health with This Cold-Press Method",
-    "who_it_is_for": "Men over 40 looking to maintain healthy prostate and urinary function.",
-    "why_it_works": "A unique liquid formula featuring 9 natural ingredients that support the entire urinary system.",
-    "seo_keywords": [
-      "prostate health supplement",
-      "prostadine reviews",
-      "urinary support"
-    ],
-    "is_subscription": false,
-    "refund_window": "60-Day",
-    "included_features": [
-      "Liquid dropper format",
-      "Non-GMO and Soy-free",
-      "Natural mineral blend"
-    ],
-    "category": "Health & Fitness"
-  },
-  {
-    "title": "Liv Pure",
-    "funnel_angle": "VSL",
-    "avg_per_conversion": 140.0,
-    "gravity_score": 128.5,
-    "affiliate_tools_url": "https://liv-pure.com/affiliates",
-    "seo_headline": "The Mediterranean Secret to Rapid Liver Detox",
-    "who_it_is_for": "Individuals struggling with weight gain who want to optimize liver function.",
-    "why_it_works": "Targets liver health to enhance the body's natural fat-burning furnace through detoxification.",
-    "seo_keywords": [
-      "liver detox weight loss",
-      "liv pure reviews",
-      "fat burning supplement"
-    ],
-    "is_subscription": false,
-    "refund_window": "60-Day",
-    "included_features": [
-      "Mediterranean nutrient blend",
-      "Liver purification complex",
-      "Fat-burning complex"
-    ],
-    "category": "Health & Fitness"
-  },
-  {
-    "title": "Joint Genesis",
-    "funnel_angle": "VSL",
-    "avg_per_conversion": 110.0,
-    "gravity_score": 114.2,
-    "affiliate_tools_url": "https://jointgenesis.com/affiliates",
-    "seo_headline": "Rejuvenate Your Joints with This Japanese Secret",
-    "who_it_is_for": "People experiencing joint discomfort or stiffness related to aging.",
-    "why_it_works": "Uses a rare ingredient to support the production of joint jelly (synovial fluid).",
-    "seo_keywords": [
-      "joint health support",
-      "joint genesis reviews",
-      "synovial fluid boost"
-    ],
-    "is_subscription": false,
-    "refund_window": "180-Day",
-    "included_features": [
-      "Patented ingredient Mobilee",
-      "Supports healthy cartilage",
-      "Improves flexibility"
-    ],
-    "category": "Health & Fitness"
-  },
-  {
-    "title": "Ikaria Juice",
-    "funnel_angle": "VSL",
-    "avg_per_conversion": 150.0,
-    "gravity_score": 168.9,
-    "affiliate_tools_url": "https://leanbellyjuice.com/affiliates",
-    "seo_headline": "The Fizzy Juice That Dissolves Fat Cells",
-    "who_it_is_for": "Anyone looking for a delicious and easy way to support metabolic health and weight loss.",
-    "why_it_works": "A powder based on the diets of the healthiest people in the world (blue zones).",
-    "seo_keywords": [
-      "ikaria lean belly juice",
-      "metabolic booster",
-      "weight loss juice"
-    ],
-    "is_subscription": false,
-    "refund_window": "180-Day",
-    "included_features": [
-      "Powdered drink mix",
-      "Blue zone inspired",
-      "Targets uric acid levels"
-    ],
-    "category": "Health & Fitness"
-  },
-  {
-    "title": "Soulmate Sketch",
-    "funnel_angle": "Quiz",
-    "avg_per_conversion": 35.0,
-    "gravity_score": 58.4,
-    "affiliate_tools_url": "https://soulmatesketch.com/affiliates",
-    "seo_headline": "Get a Digital Sketch of Your True Soulmate Today",
-    "who_it_is_for": "Singles looking for love or curious about their future partner.",
-    "why_it_works": "A viral quiz funnel where a psychic artist creates a personalized sketch based on answers.",
-    "seo_keywords": [
-      "soulmate sketch review",
-      "psychic drawing",
-      "find your soulmate"
-    ],
-    "is_subscription": false,
-    "refund_window": "60-Day",
-    "included_features": [
-      "High-quality digital sketch",
-      "Personality reading",
-      "24-hour delivery"
-    ],
-    "category": "Spirituality"
-  },
-  {
-    "title": "Cardio Slim Tea",
-    "funnel_angle": "VSL",
-    "avg_per_conversion": 160.0,
-    "gravity_score": 56.2,
-    "affiliate_tools_url": "https://cardioslimtea.com/affiliates",
-    "seo_headline": "The Tea That Supports Heart Health and Weight Loss",
-    "who_it_is_for": "People looking for a natural way to support cardiovascular wellness and manage weight.",
-    "why_it_works": "A blend of traditional herbs that optimize blood flow and metabolic activity.",
-    "seo_keywords": [
-      "cardio tea reviews",
-      "heart health weight loss",
-      "natural slimming tea"
-    ],
-    "is_subscription": false,
-    "refund_window": "60-Day",
-    "included_features": [
-      "100% natural herbs",
-      "Delicious taste",
-      "Daily wellness routine"
-    ],
-    "category": "Health & Fitness"
+      "16,000 Plans",
+      "Step-by-Step Instructions",
+      "DWG CAD File Viewer"
+    ]
   },
   {
     "title": "Dubai Wealth Secret",
     "funnel_angle": "VSL",
-    "avg_per_conversion": 55.0,
-    "gravity_score": 65.7,
+    "avg_per_conversion": "$45.00",
+    "gravity_score": 66.5,
     "affiliate_tools_url": "https://dubaiwealthsecret.com/affiliates",
-    "seo_headline": "The 'Hidden' Wealth Frequency from the Middle East",
-    "who_it_is_for": "Wealth-seekers looking for manifestation tools and abundance mindset shifts.",
-    "why_it_works": "Audio-based system designed to reprogram the subconscious for financial success.",
+    "seo_headline": "The Hidden Wealth Secret from Dubai Revealed",
+    "who_it_is_for": "People interested in manifestation and wealth attraction.",
+    "why_it_works": "High-curiosity hook based on elite wealth secrets.",
     "seo_keywords": [
       "wealth manifestation",
-      "financial success mindset",
-      "dubai wealth secret"
+      "attract money",
+      "prosperity secret"
     ],
     "is_subscription": false,
     "refund_window": "60-Day",
     "included_features": [
-      "Abundance audio tracks",
-      "Digital wealth manual",
-      "Manifestation workbook"
-    ],
-    "category": "Wealth & Business"
+      "Manifestation Audio",
+      "Step-by-Step Guide",
+      "Success Roadmap"
+    ]
   },
   {
-    "title": "Pelvic Floor Strong",
+    "title": "Year of the Horse 2026",
     "funnel_angle": "VSL",
-    "avg_per_conversion": 52.0,
-    "gravity_score": 60.3,
-    "affiliate_tools_url": "https://pelvicfloorstrong.com/affiliates",
-    "seo_headline": "Strengthen Your Core and Stop Bladder Leakage",
-    "who_it_is_for": "Women looking for natural ways to improve pelvic health and core stability.",
-    "why_it_works": "A simple movement-based system designed by a fitness expert to address common female health issues.",
+    "avg_per_conversion": "$22.00",
+    "gravity_score": 55.3,
+    "affiliate_tools_url": "https://yourastrologylanguage.com/affiliates",
+    "seo_headline": "Your Personalized 2026 Astrology Forecast",
+    "who_it_is_for": "People looking for guidance in the upcoming year.",
+    "why_it_works": "Seasonal relevance and personalized predictions.",
     "seo_keywords": [
-      "pelvic floor exercises",
-      "core strength for women",
-      "stop bladder leakage"
+      "2026 horoscope",
+      "astrology forecast",
+      "chinese zodiac"
     ],
     "is_subscription": false,
     "refund_window": "60-Day",
     "included_features": [
-      "Video training series",
-      "Progress tracking guide",
-      "Core strengthening routines"
-    ],
-    "category": "Health & Fitness"
+      "Personalized Forecast",
+      "Monthly Guidance",
+      "Lucky Dates Guide"
+    ]
   },
   {
-    "title": "Finessa",
+    "title": "Billionaire Brain Wave",
     "funnel_angle": "VSL",
-    "avg_per_conversion": 105.0,
-    "gravity_score": 31.4,
-    "affiliate_tools_url": "https://myfinessa.com/affiliates",
-    "seo_headline": "Optimize Your Digestion and Gut Health Naturally",
-    "who_it_is_for": "Individuals dealing with bloating, digestive issues, or gut imbalance.",
-    "why_it_works": "A potent blend of probiotics and enzymes that support a healthy microbiome.",
+    "avg_per_conversion": "$38.00",
+    "gravity_score": 53.5,
+    "affiliate_tools_url": "https://billionairebrainwave.com/affiliates",
+    "seo_headline": "Activate Your Billionaire Brain Wave in 7 Minutes",
+    "who_it_is_for": "Self-improvement seekers and manifestation fans.",
+    "why_it_works": "Simple 7-minute ritual makes it easy to consume.",
     "seo_keywords": [
-      "gut health supplement",
-      "digestion support",
-      "finessa reviews"
+      "brain wave",
+      "wealth attraction",
+      "theta waves"
     ],
     "is_subscription": false,
-    "refund_window": "60-Day",
+    "refund_window": "90-Day",
     "included_features": [
-      "Multi-strain probiotic",
-      "Digestive enzyme blend",
-      "Daily gut support"
-    ],
-    "category": "Health & Fitness"
+      "Audio Track",
+      "Quick Start Guide",
+      "Digital Bonus Pack"
+    ]
   },
   {
-    "title": "Pineal Guardian X",
+    "title": "Sugar Defender",
     "funnel_angle": "VSL",
-    "avg_per_conversion": 95.0,
-    "gravity_score": 35.1,
-    "affiliate_tools_url": "https://thepinealguardian.com/affiliates",
-    "seo_headline": "Support Brain Health and Manifestation with Pineal Optimization",
-    "who_it_is_for": "Spiritual seekers and biohackers looking to optimize the pineal gland.",
-    "why_it_works": "Supplements designed to decalcify the pineal gland and support cognitive clarity.",
+    "avg_per_conversion": "$145.00",
+    "gravity_score": 120,
+    "affiliate_tools_url": "https://sugardefender.com/affiliates",
+    "seo_headline": "Support Healthy Blood Sugar Naturally with Sugar Defender",
+    "who_it_is_for": "People concerned about blood sugar and energy levels.",
+    "why_it_works": "Targets underlying causes of sugar spikes and energy drops.",
     "seo_keywords": [
-      "pineal gland decalcification",
-      "brain health supplement",
-      "manifestation boost"
+      "blood sugar support",
+      "natural energy",
+      "diabetes management"
     ],
-    "is_subscription": false,
+    "is_subscription": true,
     "refund_window": "60-Day",
     "included_features": [
-      "Pure natural ingredients",
-      "Cognitive support formula",
-      "Easy-to-take capsules"
-    ],
-    "category": "Spirituality"
+      "8 Natural Ingredients",
+      "Easy-to-Take Drops",
+      "Sugar Balancing Support"
+    ]
   },
   {
-    "title": "Smoothie Diet",
-    "funnel_angle": "Brand Redirect",
-    "avg_per_conversion": 48.0,
-    "gravity_score": 70.5,
-    "affiliate_tools_url": "https://smoothiediet.com/affiliates",
-    "seo_headline": "The 21-Day Rapid Weight Loss Smoothie Diet",
-    "who_it_is_for": "Busy individuals looking for a simple and healthy meal replacement plan.",
-    "why_it_works": "A structured 21-day program with specific smoothie recipes for weight loss and energy.",
-    "seo_keywords": [
-      "smoothie diet plan",
-      "21 day weight loss",
-      "healthy smoothie recipes"
-    ],
-    "is_subscription": false,
-    "refund_window": "60-Day",
-    "included_features": [
-      "21-day meal plan",
-      "Shopping lists",
-      "Quick-start guide"
-    ],
-    "category": "Health & Fitness"
-  },
-  {
-    "title": "ZenCortex",
+    "title": "Puravive",
     "funnel_angle": "VSL",
-    "avg_per_conversion": 118.0,
-    "gravity_score": 85.3,
-    "affiliate_tools_url": "https://zencortex.com/affiliates",
-    "seo_headline": "Support Healthy Hearing and Brain Function",
-    "who_it_is_for": "Individuals experiencing hearing issues or looking for cognitive support.",
-    "why_it_works": "A liquid formula with natural ingredients that support auditory health and memory.",
+    "avg_per_conversion": "$155.00",
+    "gravity_score": 180,
+    "affiliate_tools_url": "https://puravive.com/affiliates",
+    "seo_headline": "The Exotic Secret for Healthy Weight Loss",
+    "who_it_is_for": "Individuals looking for natural weight management solutions.",
+    "why_it_works": "Unique angle focusing on brown adipose tissue (BAT).",
     "seo_keywords": [
-      "hearing health supplement",
-      "zencortex reviews",
-      "tinnitus support"
+      "weight loss",
+      "exotic rice method",
+      "metabolism booster"
     ],
-    "is_subscription": false,
-    "refund_window": "60-Day",
+    "is_subscription": true,
+    "refund_window": "180-Day",
     "included_features": [
-      "Liquid drop format",
-      "Supports auditory health",
-      "Cognitive clarity blend"
-    ],
-    "category": "Health & Fitness"
+      "BAT Booster",
+      "Non-GMO Ingredients",
+      "Manufactured in USA"
+    ]
   },
   {
-    "title": "GlucoTrust",
+    "title": "Joint Genesis",
     "funnel_angle": "VSL",
-    "avg_per_conversion": 125.0,
-    "gravity_score": 140.7,
-    "affiliate_tools_url": "https://getglucotrust.com/affiliates",
-    "seo_headline": "Maintain Healthy Blood Sugar and Sleep Better",
-    "who_it_is_for": "People looking for blood sugar support while also improving sleep quality.",
-    "why_it_works": "Formula that helps regulate glucose and contains sleep-supporting ingredients.",
+    "avg_per_conversion": "$135.00",
+    "gravity_score": 150,
+    "affiliate_tools_url": "https://jointgenesis.com/affiliates",
+    "seo_headline": "Relieve Joint Pain Naturally with Joint Genesis",
+    "who_it_is_for": "Seniors and people with chronic joint discomfort.",
+    "why_it_works": "Focuses on synovial fluid health (joint jelly).",
     "seo_keywords": [
-      "glucotrust reviews",
-      "blood sugar and sleep",
-      "natural glucose support"
+      "joint pain relief",
+      "hyaluronan supplement",
+      "mobility support"
+    ],
+    "is_subscription": true,
+    "refund_window": "180-Day",
+    "included_features": [
+      "Mobile Joint Support",
+      "Doctor Formulated",
+      "High Absorption"
+    ]
+  },
+  {
+    "title": "Java Burn",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$115.00",
+    "gravity_score": 160,
+    "affiliate_tools_url": "https://javaburn.com/affiliates",
+    "seo_headline": "Boost Your Metabolism with Your Morning Coffee",
+    "who_it_is_for": "Coffee lovers wanting to lose weight effortlessly.",
+    "why_it_works": "Add-to-coffee formula makes it part of a daily routine.",
+    "seo_keywords": [
+      "coffee weight loss",
+      "metabolism support",
+      "tasteless supplement"
     ],
     "is_subscription": false,
     "refund_window": "60-Day",
     "included_features": [
-      "Nightly blood sugar support",
-      "Promotes deep sleep",
-      "All-natural ingredients"
-    ],
-    "category": "Health & Fitness"
+      "Tasteless Powder",
+      "Mixes Instantly",
+      "Natural Ingredients"
+    ]
   },
   {
     "title": "Tea Burn",
     "funnel_angle": "VSL",
-    "avg_per_conversion": 112.0,
-    "gravity_score": 122.4,
+    "avg_per_conversion": "$95.00",
+    "gravity_score": 90,
     "affiliate_tools_url": "https://teaburn.com/affiliates",
-    "seo_headline": "Torch Fat with This Simple Tea Additive",
-    "who_it_is_for": "Tea drinkers who want to boost their metabolism and burn fat throughout the day.",
-    "why_it_works": "Patent-pending formula that works with tea to increase metabolism and improve health.",
+    "seo_headline": "Torch Fat with Your Daily Cup of Tea",
+    "who_it_is_for": "Tea drinkers looking for a weight loss boost.",
+    "why_it_works": "Convenient tasteless powder for tea-based weight loss.",
     "seo_keywords": [
-      "tea burn review",
-      "metabolism boosting tea",
-      "burn fat with tea"
+      "tea weight loss",
+      "fat burner",
+      "detox tea supplement"
     ],
     "is_subscription": false,
     "refund_window": "60-Day",
     "included_features": [
-      "Tasteless and dissolvable",
-      "Works with any tea",
-      "100% safe and natural"
+      "Natural Formula",
+      "Whitens Teeth",
+      "Increases Energy"
+    ]
+  },
+  {
+    "title": "Prostadine",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$140.00",
+    "gravity_score": 130,
+    "affiliate_tools_url": "https://prostadine.com/affiliates",
+    "seo_headline": "Natural Support for a Healthy Prostate",
+    "who_it_is_for": "Men over 40 concerned about prostate health.",
+    "why_it_works": "Focuses on hard water toxins affecting prostate health.",
+    "seo_keywords": [
+      "prostate support",
+      "men's health",
+      "urinary health"
     ],
-    "category": "Health & Fitness"
+    "is_subscription": true,
+    "refund_window": "60-Day",
+    "included_features": [
+      "9 Natural Ingredients",
+      "Easy-to-Take Drops",
+      "Supports Bladder Control"
+    ]
+  },
+  {
+    "title": "GlucoTrust",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$125.00",
+    "gravity_score": 110,
+    "affiliate_tools_url": "https://glucotrust.com/affiliates",
+    "seo_headline": "The Simple Way to Manage Blood Sugar and Sleep Better",
+    "who_it_is_for": "People with type 2 diabetes or blood sugar concerns.",
+    "why_it_works": "Dual-action formula targeting blood sugar and deep sleep.",
+    "seo_keywords": [
+      "blood sugar",
+      "sleep supplement",
+      "natural insulin support"
+    ],
+    "is_subscription": true,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Promotes Deep Sleep",
+      "Curbs Cravings",
+      "Improves Blood Flow"
+    ]
+  },
+  {
+    "title": "Quietum Plus",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$110.00",
+    "gravity_score": 80,
+    "affiliate_tools_url": "https://quietumplus.com/affiliates",
+    "seo_headline": "Support Your Hearing Health Naturally",
+    "who_it_is_for": "Individuals suffering from tinnitus or hearing issues.",
+    "why_it_works": "Focuses on the brain-ear connection and nerve support.",
+    "seo_keywords": [
+      "tinnitus relief",
+      "hearing support",
+      "ear health supplement"
+    ],
+    "is_subscription": true,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Nerve Support",
+      "Anti-Inflammatory",
+      "Cognitive Health"
+    ]
+  },
+  {
+    "title": "Cortexi",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$120.00",
+    "gravity_score": 70,
+    "affiliate_tools_url": "https://trycortexi.com/affiliates",
+    "seo_headline": "360 Degree Hearing Support & Mental Sharpness",
+    "who_it_is_for": "People seeking hearing protection and brain health.",
+    "why_it_works": "Herbal drops focusing on auditory health and memory.",
+    "seo_keywords": [
+      "hearing drops",
+      "auditory support",
+      "memory booster"
+    ],
+    "is_subscription": true,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Plant Ingredients",
+      "Non-Habit Forming",
+      "Supports Focus"
+    ]
+  },
+  {
+    "title": "Liv Pure",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$140.00",
+    "gravity_score": 140,
+    "affiliate_tools_url": "https://liv-pure.com/affiliates",
+    "seo_headline": "Optimize Your Liver Function for Automatic Weight Loss",
+    "who_it_is_for": "Individuals with slow metabolism and liver concerns.",
+    "why_it_works": "Targets liver detoxification as the key to fat burning.",
+    "seo_keywords": [
+      "liver detox",
+      "metabolism",
+      "fat burning supplement"
+    ],
+    "is_subscription": true,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Liver Purification Complex",
+      "Fat-Burning Complex",
+      "Mediterranean Solution"
+    ]
+  },
+  {
+    "title": "Ikaria Juice",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$135.00",
+    "gravity_score": 170,
+    "affiliate_tools_url": "https://theikariajuice.com/affiliates",
+    "seo_headline": "The Delicious Juice that Targets Ceramides and Belly Fat",
+    "who_it_is_for": "People looking for a tasty way to lose weight.",
+    "why_it_works": "Focuses on flushing out destructive 'ceramides'.",
+    "seo_keywords": [
+      "belly fat juice",
+      "metabolic support",
+      "ikaria lean belly"
+    ],
+    "is_subscription": true,
+    "refund_window": "180-Day",
+    "included_features": [
+      "Metabolic Blend",
+      "Probiotic Blend",
+      "Polyphenol Blend"
+    ]
+  },
+  {
+    "title": "Neotonics",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$130.00",
+    "gravity_score": 100,
+    "affiliate_tools_url": "https://neotonics.com/affiliates",
+    "seo_headline": "The Skin-Gastro Connection for Youthful Radiance",
+    "who_it_is_for": "Women seeking skin rejuvenation through gut health.",
+    "why_it_works": "Connects skin cell turnover with gut microbiome health.",
+    "seo_keywords": [
+      "skin health",
+      "gut-skin axis",
+      "anti-aging supplement"
+    ],
+    "is_subscription": true,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Gummy Format",
+      "Probiotic Rich",
+      "Collagen Support"
+    ]
+  },
+  {
+    "title": "ZenCortex",
+    "funnel_angle": "VSL",
+    "avg_per_conversion": "$125.00",
+    "gravity_score": 75,
+    "affiliate_tools_url": "https://zencortexi.com/affiliates",
+    "seo_headline": "The Hearing Support Formula with a Brain-First Approach",
+    "who_it_is_for": "People with hearing sensitivity and brain fog.",
+    "why_it_works": "Nootropic-style ingredients that also protect hearing.",
+    "seo_keywords": [
+      "hearing protection",
+      "nootropic hearing",
+      "auditory clarity"
+    ],
+    "is_subscription": true,
+    "refund_window": "60-Day",
+    "included_features": [
+      "Mental Sharpness",
+      "Ear Health",
+      "Energy Support"
+    ]
+  },
+  {
+    "title": "Smoothie Diet",
+    "funnel_angle": "E-commerce",
+    "avg_per_conversion": "$30.00",
+    "gravity_score": 50,
+    "affiliate_tools_url": "https://www.smoothiediet.com/affiliates",
+    "seo_headline": "Lose Weight with the 21-Day Smoothie Diet",
+    "who_it_is_for": "Busy people looking for a simple, tasty weight loss plan.",
+    "why_it_works": "Low-calorie, nutrient-dense meal replacement strategy.",
+    "seo_keywords": [
+      "smoothie recipes",
+      "21 day weight loss",
+      "meal replacement"
+    ],
+    "is_subscription": false,
+    "refund_window": "60-Day",
+    "included_features": [
+      "21-Day Plan",
+      "Shopping Lists",
+      "Detox Guide"
+    ]
   }
 ]
