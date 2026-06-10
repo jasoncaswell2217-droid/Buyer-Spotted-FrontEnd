@@ -824,6 +824,7 @@ export default function App() {
     const unsub = onSnapshot(collection(db, "blogCategories"), (snapshot) => {
       const dbCats = snapshot.docs.map(doc => doc.data().name as string).filter(Boolean);
       const defaultCats = [
+        "General",
         "Health & Wellness",
         "DIY & Home",
         "Product Reviews",
